@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exclusão de Conta e Dados - Auto em Dia</title>
+    <style>
+        :root {
+            --primary: #2751D9;
+            --danger: #EF4444;
+            --text-dark: #0F172A;
+            --text-muted: #64748B;
+            --bg: #F8FAFC;
+            --card: #FFFFFF;
+            --border: #E2E8F0;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
+            background-color: var(--bg);
+            color: var(--text-dark);
+            line-height: 1.6;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 760px;
+            margin: 0 auto;
+            background: var(--card);
+            padding: 40px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        }
+        .header {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 24px;
+            margin-bottom: 28px;
+        }
+        .header h1 {
+            color: var(--danger);
+            font-size: 26px;
+            margin-bottom: 8px;
+        }
+        .header p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        h2 {
+            font-size: 18px;
+            color: var(--text-dark);
+            margin-top: 24px;
+            margin-bottom: 12px;
+        }
+        p, ul, ol {
+            color: #334155;
+            font-size: 15px;
+            margin-bottom: 16px;
+        }
+        ol, ul {
+            padding-left: 24px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        .card-step {
+            background: #F1F5F9;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 16px 0;
+            border: 1px solid var(--border);
+        }
+        .email-btn {
+            display: inline-block;
+            background-color: var(--primary);
+            color: #FFFFFF;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-top: 10px;
+            transition: opacity 0.2s;
+        }
+        .email-btn:hover {
+            opacity: 0.9;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Solicitação de Exclusão de Conta e Dados</h1>
+        <p><strong>Aplicativo:</strong> Auto em Dia (com.gollub.autoemdia)</p>
+    </div>
+
+    <p>No <strong>Auto em Dia</strong>, respeitamos a sua privacidade e garantimos seu direito total de solicitar a exclusão de sua conta e todos os dados associados a ela a qualquer momento, em conformidade com as diretrizes da Google Play Store e a LGPD.</p>
+
+    <h2>Opção 1: Exclusão Direta pelo Aplicativo (Instantâneo)</h2>
+    <div class="card-step">
+        <p>Você pode excluir sua conta imediatamente de dentro do aplicativo seguindo os passos:</p>
+        <ol>
+            <li>Abra o aplicativo <strong>Auto em Dia</strong> no seu celular.</li>
+            <li>No menu inferior, toque na aba <strong>"Mais"</strong>.</li>
+            <li>Role até o final e selecione <strong>"Excluir conta"</strong>.</li>
+            <li>Confirme a solicitação na caixa de diálogo de confirmação.</li>
+        </ol>
+        <p style="margin-bottom:0; font-size:13px; color:var(--text-muted);"><em>Sua conta e todos os seus dados serão apagados instantaneamente de nossos servidores.</em></p>
+    </div>
+
+    <h2>Opção 2: Solicitação Web / Por E-mail (Sem o aplicativo)</h2>
+    <div class="card-step">
+        <p>Caso já tenha desinstalado o aplicativo ou não tenha acesso ao seu aparelho, você pode solicitar a exclusão enviando um e-mail para nossa equipe de suporte:</p>
+        
+        <p><strong>Para:</strong> <a href="mailto:suporte.autoemdia@gmail.com?subject=Solicita%C3%A7%C3%A3o%20de%20Exclus%C3%A3o%20de%20Conta%20-%20Auto%20em%20Dia">suporte.autoemdia@gmail.com</a><br>
+        <strong>Assunto:</strong> Solicitação de Exclusão de Conta - Auto em Dia<br>
+        <strong>Corpo do e-mail:</strong> Informe o endereço de e-mail cadastrado no aplicativo.</p>
+
+        <a class="email-btn" href="mailto:suporte.autoemdia@gmail.com?subject=Solicita%C3%A7%C3%A3o%20de%20Exclus%C3%A3o%20de%20Conta%20-%20Auto%20em%20Dia">Enviar Solicitação de Exclusão</a>
+    </div>
+
+    <h2>Quais dados são excluídos?</h2>
+    <p>Ao concluir o processo de exclusão, os seguintes dados são permanentemente removidos:</p>
+    <ul>
+        <li>Dados cadastrais (Nome, E-mail, Foto de perfil e ID de usuário).</li>
+        <li>Todos os veículos cadastrados na sua conta.</li>
+        <li>Todo o histórico de manutenções e comprovantes.</li>
+        <li>Todos os registros de gastos e despesas.</li>
+        <li>Todos os lembretes agendados.</li>
+    </ul>
+
+    <h2>Prazo de Processamento</h2>
+    <p>Solicitações feitas pelo próprio aplicativo são processadas <strong>em tempo real</strong>. Solicitações feitas por e-mail são concluídas em até <strong>48 horas úteis</strong> com envio de confirmação.</p>
+
+    <div class="footer">
+        © 2026 Auto em Dia • <a href="index.html" style="color:var(--primary); text-decoration:none;">Política de Privacidade</a>
+    </div>
+</div>
+
+</body>
+</html>
