@@ -16,11 +16,11 @@ class ExpenseModel extends ExpenseEntity {
 
   factory ExpenseModel.fromJson(Map<String, dynamic> json, {String? id}) =>
       ExpenseModel(
-        id: id ?? (json['id'] as String),
-        vehicleId: json['vehicle_id'] as String,
-        category: json['category'] as String,
-        description: json['description'] as String,
-        amount: (json['amount'] as num).toDouble(),
+        id: id ?? (json['id'] as String?) ?? '',
+        vehicleId: (json['vehicle_id'] as String?) ?? '',
+        category: (json['category'] as String?) ?? 'Outros',
+        description: (json['description'] as String?) ?? '',
+        amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
         expenseDate: _toDate(json['expense_date']) ?? DateTime.now(),
         createdAt: _toDate(json['created_at']),
       );

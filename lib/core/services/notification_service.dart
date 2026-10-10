@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -18,27 +19,33 @@ class NotificationService {
 
   Future<void> init() async {
     if (_initialized) return;
-    tz.initializeTimeZones();
     try {
-      tz.setLocalLocation(tz.getLocation('America/Sao_Paulo'));
-    } catch (_) {
-      // Se o TZ não existir, segue com o default UTC.
+      tz.initializeTimeZones();
+      try {
+        tz.setLocalLocation(tz.getLocation('America/Sao_Paulo'));
+      } catch (_) {
+        // Se o TZ não existir, segue com o default UTC.
+      }
+
+      const androidSettings = AndroidInitializationSettings('ic_notification');
+      const initSettings = InitializationSettings(android: androidSettings);
+      await _plugin.initialize(settings: initSettings);
+
+      // Android 13+: solicita permissão em runtime de forma segura
+      try {
+        await _plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >()
+            ?.requestNotificationsPermission();
+      } catch (e) {
+        debugPrint('Permissão de notificações ignorada no start: $e');
+      }
+
+      _initialized = true;
+    } catch (e) {
+      debugPrint('Erro ao inicializar NotificationService: $e');
     }
-
-    const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
-    );
-    const initSettings = InitializationSettings(android: androidSettings);
-    await _plugin.initialize(settings: initSettings);
-
-    // Android 13+: solicita permissão em runtime.
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.requestNotificationsPermission();
-
-    _initialized = true;
   }
 
   NotificationDetails get _details => const NotificationDetails(
@@ -48,6 +55,7 @@ class NotificationService {
       channelDescription: AppConstants.notificationChannelDescription,
       importance: Importance.max,
       priority: Priority.high,
+      icon: 'ic_notification',
     ),
   );
 
@@ -56,13 +64,17 @@ class NotificationService {
     required String title,
     required String body,
   }) async {
-    await init();
-    await _plugin.show(
-      id: id,
-      title: title,
-      body: body,
-      notificationDetails: _details,
-    );
+    try {
+      await init();
+      await _plugin.show(
+        id: id,
+        title: title,
+        body: body,
+        notificationDetails: _details,
+      );
+    } catch (e) {
+      debugPrint('Erro ao exibir notificação imediata: $e');
+    }
   }
 
   Future<void> schedule({
@@ -71,17 +83,35 @@ class NotificationService {
     required String body,
     required DateTime date,
   }) async {
-    await init();
-    final tzDate = tz.TZDateTime.from(date, tz.local);
-    if (tzDate.isBefore(tz.TZDateTime.now(tz.local))) return;
-    await _plugin.zonedSchedule(
-      id: id,
-      title: title,
-      body: body,
-      scheduledDate: tzDate,
-      notificationDetails: _details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-    );
+    try {
+      await init();
+      final tzDate = tz.TZDateTime.from(date, tz.local);
+      if (tzDate.isBefore(tz.TZDateTime.now(tz.local))) return;
+
+      try {
+        await _plugin.zonedSchedule(
+          id: id,
+          title: title,
+          body: body,
+          scheduledDate: tzDate,
+          notificationDetails: _details,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        );
+      } catch (e) {
+        // Fallback para agendamento inexato se o dispositivo (ex: Android 14+) bloquear alarmes exatos
+        debugPrint('Fallback de agendamento de notificação para inexact: $e');
+        await _plugin.zonedSchedule(
+          id: id,
+          title: title,
+          body: body,
+          scheduledDate: tzDate,
+          notificationDetails: _details,
+          androidScheduleMode: AndroidScheduleMode.inexact,
+        );
+      }
+    } catch (e) {
+      debugPrint('Erro ao agendar notificação: $e');
+    }
   }
 
   /// Agenda um lembrete por data, com avisos em 30d/7d/no dia.
@@ -90,23 +120,27 @@ class NotificationService {
     required String title,
     required DateTime dueDate,
   }) async {
-    final now = DateTime.now();
-    for (final daysBefore in AppConstants.reminderNotifyDaysBefore) {
-      final notifyAt = DateTime(
-        dueDate.year,
-        dueDate.month,
-        dueDate.day,
-        9,
-      ).subtract(Duration(days: daysBefore));
-      if (notifyAt.isBefore(now)) continue;
+    try {
+      final now = DateTime.now();
+      for (final daysBefore in AppConstants.reminderNotifyDaysBefore) {
+        final notifyAt = DateTime(
+          dueDate.year,
+          dueDate.month,
+          dueDate.day,
+          9,
+        ).subtract(Duration(days: daysBefore));
+        if (notifyAt.isBefore(now)) continue;
 
-      final (t, b) = _reminderCopy(title, daysBefore);
-      await schedule(
-        id: baseId + daysBefore,
-        title: t,
-        body: b,
-        date: notifyAt,
-      );
+        final (t, b) = _reminderCopy(title, daysBefore);
+        await schedule(
+          id: baseId + daysBefore,
+          title: t,
+          body: b,
+          date: notifyAt,
+        );
+      }
+    } catch (e) {
+      debugPrint('Erro ao agendar lembrete por data: $e');
     }
   }
 
@@ -118,9 +152,57 @@ class NotificationService {
     };
   }
 
-  Future<void> cancel(int id) => _plugin.cancel(id: id);
+  /// Lembrete periódico (mensal) para o usuário registrar a quilometragem
+  /// atual do veículo — mantém cálculos de custo/km e metas precisos.
+  static const mileageReminderId = 990001;
 
-  Future<void> cancelAll() => _plugin.cancelAll();
+  Future<void> scheduleMileageReminder() async {
+    try {
+      await init();
+      // Cancela agendamentos anteriores para não duplicar.
+      await cancel(mileageReminderId);
+
+      final now = DateTime.now();
+      // Próximo dia 1º às 10h (horário local).
+      var next = DateTime(now.year, now.month + 1, 1, 10);
+
+      await _plugin.zonedSchedule(
+        id: mileageReminderId,
+        title: 'Registrando a quilometragem 📝',
+        body:
+            'Atualize o km do seu veículo para mantermos os lembretes em dia.',
+        scheduledDate: tz.TZDateTime.from(next, tz.local),
+        notificationDetails: _details,
+        androidScheduleMode: AndroidScheduleMode.inexact,
+        // Repete mensalmente enquanto o app for usado.
+        matchDateTimeComponents: DateTimeComponents.dayOfMonthAndTime,
+      );
+      // ignore: avoid_catches_without_on_clauses
+    } catch (e) {
+      debugPrint('Erro ao agendar lembrete de quilometragem: $e');
+    }
+  }
+
+  /// Cancela o lembrete periódico de quilometragem.
+  Future<void> cancelMileageReminder() async {
+    try {
+      await cancel(mileageReminderId);
+    } catch (_) {
+      // Silencioso: cancelamento não crítico.
+    }
+  }
+
+  Future<void> cancel(int id) async {
+    try {
+      await _plugin.cancel(id: id);
+    } catch (_) {}
+  }
+
+  Future<void> cancelAll() async {
+    try {
+      await _plugin.cancelAll();
+    } catch (_) {}
+  }
 
   /// Gera um id numérico estável para um lembrete (a partir do uuid).
   static int notificationIdFromUuid(String uuid) =>

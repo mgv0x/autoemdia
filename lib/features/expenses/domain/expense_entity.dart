@@ -17,4 +17,22 @@ class ExpenseEntity {
   final double amount;
   final DateTime expenseDate;
   final DateTime? createdAt;
+
+  ExpenseEntity copyWith({
+    String? id,
+    String? vehicleId,
+    String? category,
+    String? description,
+    double? amount,
+    DateTime? expenseDate,
+    DateTime? createdAt,
+  }) => ExpenseEntity(
+    id: id ?? this.id,
+    vehicleId: vehicleId ?? this.vehicleId,
+    category: category ?? this.category,
+    description: description ?? this.description,
+    amount: amount ?? this.amount,
+    expenseDate: expenseDate ?? this.expenseDate,
+    createdAt: createdAt ?? this.createdAt,
+  );
 }

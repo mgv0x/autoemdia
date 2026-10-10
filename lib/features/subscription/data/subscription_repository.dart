@@ -8,7 +8,6 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import '../../../../core/constants/env.dart';
 import '../../../../core/errors/app_failure.dart';
 import '../../../../shared/providers/firebase_providers.dart';
-import '../domain/subscription_entity.dart';
 
 /// Preços de referência usados apenas como fallback visual quando a loja
 /// ainda não está configurada. Os valores reais e o produto ativo vêm
@@ -48,14 +47,18 @@ class SubscriptionRepository {
     } catch (_) {
       _billingAvailable = false;
     }
+    if (_billingAvailable) {
+      _purchasesSub ??= _iap.purchaseStream.listen(
+        _onPurchaseUpdates,
+        onError: (_) {},
+      );
+    }
+    await refreshStatus();
+  }
+
+  /// Restaura compras efetuadas pelo usuário na Google Play Store.
+  Future<void> restorePurchases() async {
     if (!_billingAvailable) return;
-
-    _purchasesSub ??= _iap.purchaseStream.listen(
-      _onPurchaseUpdates,
-      onError: (_) {},
-    );
-
-    // Restaura compras existentes (útil para testes).
     try {
       await _iap.restorePurchases();
     } catch (_) {}
@@ -124,39 +127,73 @@ class SubscriptionRepository {
         'plan': 'premium',
       }, SetOptions(merge: true));
     } catch (_) {
-      // Falha de persistência não impede a entrega. O usuário pode
-      // restaurar/verificar novamente no próximo start.
+      // Falha de persistência não impede a entrega.
     }
   }
 
-  /// Atualiza o status Premium a partir do Firestore.
+  /// Alterna o plano entre free e premium para fins de teste no emulador / sandbox.
+  Future<void> toggleDebugPlan() async {
+    final uid = _uid;
+    if (uid == null) return;
+    final current = await refreshStatus();
+    final newPlan = current ? 'free' : 'premium';
+    try {
+      await _db.collection('users').doc(uid).set({
+        'plan': newPlan,
+      }, SetOptions(merge: true));
+      if (!current) {
+        await _db.collection('subscriptions').add({
+          'user_id': uid,
+          'product_id': 'premium_sandbox',
+          'status': 'active',
+          'started_at': Timestamp.fromDate(DateTime.now()),
+          'expires_at': Timestamp.fromDate(DateTime.now().add(const Duration(days: 365))),
+        });
+      } else {
+        final snap = await _db
+            .collection('subscriptions')
+            .where('user_id', isEqualTo: uid)
+            .get();
+        for (final doc in snap.docs) {
+          await doc.reference.update({'status': 'canceled'});
+        }
+      }
+    } catch (_) {}
+    await refreshStatus();
+  }
+
+  /// Atualiza o status Premium a partir do Firestore (sem exigir índice composto).
   Future<bool> refreshStatus() async {
     final uid = _uid;
     var active = false;
     if (uid != null) {
       try {
-        final snap = await _db
-            .collection('subscriptions')
-            .where('user_id', isEqualTo: uid)
-            .where('status', isEqualTo: 'active')
-            .orderBy('expires_at', descending: true)
-            .limit(1)
-            .get();
-        if (snap.docs.isNotEmpty) {
-          final d = snap.docs.first.data();
-          final entity = SubscriptionEntity(
-            id: snap.docs.first.id,
-            userId: uid,
-            productId: d['product_id'] as String? ?? '',
-            status: d['status'] as String? ?? 'pending',
-            startedAt: (d['started_at'] as Timestamp?)?.toDate(),
-            expiresAt: (d['expires_at'] as Timestamp?)?.toDate(),
-            createdAt: (d['created_at'] as Timestamp?)?.toDate(),
-          );
-          active = entity.isActive;
+        final userDoc = await _db.collection('users').doc(uid).get();
+        final plan = userDoc.data()?['plan'];
+        if (plan == 'free') {
+          active = false;
+        } else if (plan == 'premium') {
+          active = true;
+        } else {
+          final snap = await _db
+              .collection('subscriptions')
+              .where('user_id', isEqualTo: uid)
+              .where('status', isEqualTo: 'active')
+              .get();
+          if (snap.docs.isNotEmpty) {
+            final now = DateTime.now();
+            for (final d in snap.docs) {
+              final data = d.data();
+              final expires = (data['expires_at'] as Timestamp?)?.toDate();
+              if (expires == null || expires.isAfter(now)) {
+                active = true;
+                break;
+              }
+            }
+          }
         }
       } catch (_) {
-        // Falha de consulta: mantém o último status conhecido (não "rebaixa").
+        // Falha de consulta: mantém o último status conhecido.
       }
     }
     _statusController.add(active);

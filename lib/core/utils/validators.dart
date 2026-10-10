@@ -12,8 +12,9 @@ abstract final class Validators {
 
   static String? email(String? value) {
     if (required(value, 'E-mail') != null) return 'E-mail é obrigatório.';
-    if (!_emailRegex.hasMatch(value!.trim()))
+    if (!_emailRegex.hasMatch(value!.trim())) {
       return 'Informe um e-mail válido.';
+    }
     return null;
   }
 
@@ -95,5 +96,15 @@ abstract final class Validators {
     final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.isEmpty) return null;
     return int.tryParse(digits);
+  }
+
+  /// Verifica se a placa segue padrão Mercosul (ABC1D23) ou antigo (ABC-1234 / ABC1234).
+  /// Usado como aviso educativo/orientativo, não bloqueio.
+  static bool isBrazilianPlate(String value) {
+    final clean = value.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').toUpperCase();
+    if (clean.length != 7) return false;
+    final mercosulRegex = RegExp(r'^[A-Z]{3}[0-9][A-Z][0-9]{2}$');
+    final oldRegex = RegExp(r'^[A-Z]{3}[0-9]{4}$');
+    return mercosulRegex.hasMatch(clean) || oldRegex.hasMatch(clean);
   }
 }

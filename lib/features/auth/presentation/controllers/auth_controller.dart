@@ -7,6 +7,8 @@ import '../../domain/user_profile.dart';
 import '../../data/firebase_auth_repository.dart';
 import '../../data/firebase_user_mapper.dart';
 
+import '../../../../core/services/firebase_status.dart';
+
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return FirebaseAuthRepository(
     ref.watch(firebaseAuthProvider),
@@ -16,14 +18,21 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 
 /// Estado atual do usuário via stream de auth (com perfil do Firestore).
 final authStreamProvider = StreamProvider<UserProfile?>((ref) {
-  final authRepo = ref.watch(authRepositoryProvider);
-  final auth = ref.watch(firebaseAuthProvider);
-  final firestore = ref.watch(firestoreProvider);
-  return authRepo.authStateChanges().asyncMap((_) async {
-    final user = auth.currentUser;
-    if (user == null) return null;
-    return fetchUserProfile(user: user, firestore: firestore);
-  });
+  if (!FirebaseStatus.initialized) {
+    return Stream.value(null);
+  }
+  try {
+    final authRepo = ref.watch(authRepositoryProvider);
+    final auth = ref.watch(firebaseAuthProvider);
+    final firestore = ref.watch(firestoreProvider);
+    return authRepo.authStateChanges().asyncMap((_) async {
+      final user = auth.currentUser;
+      if (user == null) return null;
+      return fetchUserProfile(user: user, firestore: firestore);
+    });
+  } catch (_) {
+    return Stream.value(null);
+  }
 });
 
 /// Controller de formulários de autenticação.

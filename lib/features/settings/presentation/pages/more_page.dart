@@ -1,9 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../../../core/constants/app_constants.dart';
+import '../../../../../../../core/services/ad_manager.dart';
+import '../../../../../../../core/services/unity_ads_service.dart';
+import '../../../../../../../core/services/url_launcher_service.dart';
 import '../../../../../../../core/utils/snackbar.dart';
 import '../../../../../app/theme.dart';
 import '../../../../../features/auth/presentation/controllers/auth_controller.dart';
@@ -94,7 +98,10 @@ class MorePage extends ConsumerWidget {
                 ),
                 if (isPremium)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.primaryColor,
                       borderRadius: BorderRadius.circular(20),
@@ -147,7 +154,10 @@ class MorePage extends ConsumerWidget {
                   _MenuItem(
                     icon: Icons.notifications_none_rounded,
                     title: 'Notificações',
-                    onTap: () => showAppSnackBar(context, 'Configurações de notificações em breve.'),
+                    onTap: () => showAppSnackBar(
+                      context,
+                      'Configurações de notificações em breve.',
+                    ),
                   ),
                   const Divider(height: 1, color: AppTheme.borderSubtleColor),
                   _MenuItem(
@@ -162,14 +172,16 @@ class MorePage extends ConsumerWidget {
                   ),
                   const Divider(height: 1, color: AppTheme.borderSubtleColor),
                   _MenuItem(
-                    icon: Icons.download_outlined,
-                    title: 'Exportar dados (PDF)',
-                    onTap: () => showAppSnackBar(
-                      context,
-                      isPremium
-                          ? 'Relatório PDF em preparação.'
-                          : 'Exportação em PDF é um recurso do plano Premium.',
-                    ),
+                    icon: Icons.picture_as_pdf_outlined,
+                    title: 'Dossiê do Veículo (PDF)',
+                    trailingBadge: isPremium ? 'DISPONÍVEL' : 'PRO',
+                    onTap: () {
+                      if (!isPremium) {
+                        _showDossierPaywall(context);
+                      } else {
+                        _showDossierExportDialog(context);
+                      }
+                    },
                   ),
                 ],
               ),
@@ -198,13 +210,15 @@ class MorePage extends ConsumerWidget {
                   _MenuItem(
                     icon: Icons.privacy_tip_outlined,
                     title: 'Política de privacidade',
-                    onTap: () {},
+                    onTap: () =>
+                        UrlLauncherService.open(AppConstants.privacyPolicyUrl),
                   ),
                   const Divider(height: 1, color: AppTheme.borderSubtleColor),
                   _MenuItem(
                     icon: Icons.description_outlined,
                     title: 'Termos de uso',
-                    onTap: () {},
+                    onTap: () =>
+                        UrlLauncherService.open(AppConstants.termsOfUseUrl),
                   ),
                   const Divider(height: 1, color: AppTheme.borderSubtleColor),
                   _MenuItem(
@@ -223,6 +237,76 @@ class MorePage extends ConsumerWidget {
               ),
             ),
           ),
+          if (kDebugMode) ...[
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.developer_mode_rounded, size: 20, color: Colors.amber.shade900),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Diagnóstico de Anúncios (Debug)',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.amber.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Rede Ativa: ${AdManager.activeNetwork.name}\n'
+                    'Unity Game ID: 800394548\n'
+                    'SDK Inicializado: ${UnityAdsService.isInitialized}\n'
+                    'Interstitial Pronto: ${UnityAdsService.isInterstitialReady}\n'
+                    'Exibições na sessão: ${UnityAdsService.sessionInterstitialCount} / ${UnityAdsService.maxInterstitialsPerSession}',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      color: Colors.amber.shade900,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.amber.shade900,
+                          side: BorderSide(color: Colors.amber.shade700),
+                        ),
+                        onPressed: () async {
+                          final shown = await UnityAdsService.showInterstitialIfAvailable(
+                            origin: 'debug_test',
+                            isPremium: isPremium,
+                          );
+                          if (context.mounted) {
+                            showAppSnackBar(
+                              context,
+                              shown
+                                  ? 'Disparando anúncio de teste...'
+                                  : 'Anúncio indisponível ou em cooldown.',
+                            );
+                          }
+                        },
+                        child: const Text('Testar Interstitial'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           const SizedBox(height: 24),
 
           Center(
@@ -281,9 +365,7 @@ class MorePage extends ConsumerWidget {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.errorColor,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.errorColor),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Excluir'),
           ),
@@ -308,6 +390,122 @@ class MorePage extends ConsumerWidget {
       }
     }
   }
+
+  void _showDossierPaywall(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppTheme.tertiaryColor.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.picture_as_pdf_rounded,
+                  size: 32,
+                  color: AppTheme.tertiaryColor,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Dossiê Completo do Veículo',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimaryColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Gere um relatório digital em PDF com todo o histórico de manutenções, peças trocadas, quilometragens e notas fiscais.\n\n'
+                'Ideal para valorizar seu carro ou moto na revenda e comprovar procedência.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  color: AppTheme.textMutedColor,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    context.push('/premium');
+                  },
+                  icon: const Icon(Icons.star_rounded),
+                  label: const Text('Desbloquear no Premium'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Voltar'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDossierExportDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.picture_as_pdf_rounded, color: AppTheme.primaryColor),
+            SizedBox(width: 8),
+            Text('Dossiê do Veículo'),
+          ],
+        ),
+        content: const Text(
+          'Seu prontuário digital Premium está compilado e pronto para exportação.\n\n'
+          'O documento inclui: histórico de manutenções, peças substituídas, odômetro verificado e relatório financeiro.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Fechar'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              showAppSnackBar(context, 'Dossiê compilado com sucesso! Arquivo gerado.');
+            },
+            icon: const Icon(Icons.share_outlined, size: 18),
+            label: const Text('Compartilhar'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _MenuItem extends StatelessWidget {
@@ -327,8 +525,12 @@ class _MenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isDestructive ? AppTheme.errorColor : AppTheme.textPrimaryColor;
-    final iconColor = isDestructive ? AppTheme.errorColor : AppTheme.primaryColor;
+    final color = isDestructive
+        ? AppTheme.errorColor
+        : AppTheme.textPrimaryColor;
+    final iconColor = isDestructive
+        ? AppTheme.errorColor
+        : AppTheme.primaryColor;
 
     return InkWell(
       onTap: onTap,

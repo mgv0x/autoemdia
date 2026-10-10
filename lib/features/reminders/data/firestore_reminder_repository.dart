@@ -18,11 +18,16 @@ class FirestoreReminderRepository implements ReminderRepository {
     try {
       final snap = await _col
           .where('vehicle_id', isEqualTo: vehicleId)
-          .orderBy('due_date')
           .get();
-      return snap.docs
+      final list = snap.docs
           .map((d) => ReminderModel.fromJson(d.data(), id: d.id))
           .toList();
+      list.sort((a, b) {
+        if (a.dueDate == null) return 1;
+        if (b.dueDate == null) return -1;
+        return a.dueDate!.compareTo(b.dueDate!);
+      });
+      return list;
     } catch (e) {
       throw handleError(e, 'Não foi possível carregar os lembretes.');
     }
@@ -31,10 +36,9 @@ class FirestoreReminderRepository implements ReminderRepository {
   @override
   Future<ReminderEntity> create(ReminderEntity entity) async {
     try {
-      final ref = _col.doc();
+      final ref = entity.id.isNotEmpty ? _col.doc(entity.id) : _col.doc();
       await ref.set(ReminderModel.toJson(entity));
-      final created = await ref.get();
-      return ReminderModel.fromJson(created.data()!, id: ref.id);
+      return entity.copyWith(id: ref.id);
     } catch (e) {
       throw handleError(e, 'Não foi possível criar o lembrete.');
     }
@@ -46,8 +50,7 @@ class FirestoreReminderRepository implements ReminderRepository {
       await _col
           .doc(entity.id)
           .set(ReminderModel.toJson(entity), SetOptions(merge: true));
-      final updated = await _col.doc(entity.id).get();
-      return ReminderModel.fromJson(updated.data()!, id: entity.id);
+      return entity;
     } catch (e) {
       throw handleError(e, 'Não foi possível atualizar o lembrete.');
     }
@@ -65,7 +68,10 @@ class FirestoreReminderRepository implements ReminderRepository {
   @override
   Future<void> setCompleted(String id, bool completed) async {
     try {
-      await _col.doc(id).set({'completed': completed}, SetOptions(merge: true));
+      await _col.doc(id).set({
+        'completed': completed,
+        'completed_at': completed ? FieldValue.serverTimestamp() : null,
+      }, SetOptions(merge: true));
     } catch (e) {
       throw handleError(e, 'Não foi possível concluir o lembrete.');
     }

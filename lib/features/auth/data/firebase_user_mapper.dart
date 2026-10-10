@@ -19,17 +19,21 @@ Future<UserProfile> fetchUserProfile({
   required fb.User user,
   required FirebaseFirestore firestore,
 }) async {
-  final doc = await firestore.collection('users').doc(user.uid).get();
-  if (!doc.exists) return user.toProfile();
-  final data = doc.data()!;
-  return UserProfile(
-    id: user.uid,
-    name:
-        (data['name'] as String?) ??
-        user.displayName ??
-        (user.email?.split('@').first ?? 'Usuário'),
-    email: user.email ?? (data['email'] as String?) ?? '',
-    plan: (data['plan'] as String?) ?? 'free',
-    createdAt: (data['created_at'] as Timestamp?)?.toDate(),
-  );
+  try {
+    final doc = await firestore.collection('users').doc(user.uid).get();
+    if (!doc.exists) return user.toProfile();
+    final data = doc.data()!;
+    return UserProfile(
+      id: user.uid,
+      name:
+          (data['name'] as String?) ??
+          user.displayName ??
+          (user.email?.split('@').first ?? 'Usuário'),
+      email: user.email ?? (data['email'] as String?) ?? '',
+      plan: (data['plan'] as String?) ?? 'free',
+      createdAt: (data['created_at'] as Timestamp?)?.toDate(),
+    );
+  } catch (_) {
+    return user.toProfile();
+  }
 }

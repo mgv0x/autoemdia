@@ -16,13 +16,23 @@ class AdMobService {
     try {
       await MobileAds.instance.initialize();
       _initialized = true;
-    } catch (_) {
-      // Falha na inicialização de anúncios não deve derrubar o app.
+      debugPrint('[AdMob] SDK inicializado com sucesso.');
+    } catch (e) {
+      debugPrint('[AdMob] Falha ao inicializar SDK: $e');
     }
   }
 
   static bool get isInitialized => _initialized;
 
-  static String get bannerAdUnitId => Env.admobBannerIdAndroid;
-  static String get interstitialAdUnitId => Env.admobInterstitialIdAndroid;
+  static String get bannerAdUnitId => kDebugMode
+      ? 'ca-app-pub-3940256099942544/6300978111'
+      : (Env.admobBannerIdAndroid.isNotEmpty
+          ? Env.admobBannerIdAndroid
+          : 'ca-app-pub-3940256099942544/6300978111');
+
+  static String get interstitialAdUnitId => kDebugMode
+      ? 'ca-app-pub-3940256099942544/1033173712'
+      : (Env.admobInterstitialIdAndroid.isNotEmpty
+          ? Env.admobInterstitialIdAndroid
+          : 'ca-app-pub-3940256099942544/1033173712');
 }

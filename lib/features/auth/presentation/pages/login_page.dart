@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../app/theme.dart';
-import '../../../../../core/constants/env.dart';
 import '../../../../../core/errors/error_mapper.dart';
 import '../../../../../core/utils/snackbar.dart';
 import '../../../../../core/utils/validators.dart';
@@ -44,19 +43,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
-  Future<void> _google() async {
-    final ok = await ref
-        .read(authControllerProvider.notifier)
-        .signInWithGoogle();
-    if (!mounted) return;
-    if (ok) {
-      context.go('/');
-    } else {
-      final err = ref.read(authControllerProvider).error;
-      showAppSnackBar(context, handleError(err ?? '').message, isError: true);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final loading = ref.watch(authControllerProvider).isLoading;
@@ -78,26 +64,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     // Logo Box
                     Center(
                       child: Container(
-                        width: 72,
-                        height: 72,
+                        width: 88,
+                        height: 88,
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: AppTheme.borderSubtleColor, width: 1.2),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: AppTheme.borderSubtleColor,
+                            width: 1.2,
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                              color: AppTheme.primaryColor.withValues(
+                                alpha: 0.08,
+                              ),
                               blurRadius: 16,
                               offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.directions_car_filled_rounded,
-                            size: 40,
-                            color: AppTheme.primaryColor,
-                          ),
+                        child: Image.asset(
+                          'assets/images/logo.png',
+                          fit: BoxFit.contain,
                         ),
                       ),
                     ),
@@ -131,7 +120,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       keyboardType: TextInputType.emailAddress,
                       autofillHints: const [AutofillHints.email],
                       validator: Validators.email,
-                      style: GoogleFonts.inter(fontSize: 15, color: AppTheme.textPrimaryColor),
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        color: AppTheme.textPrimaryColor,
+                      ),
                       decoration: InputDecoration(
                         hintText: 'seu@email.com',
                         prefixIcon: const Icon(
@@ -143,7 +135,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         fillColor: Colors.white,
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppTheme.borderSubtleColor),
+                          borderSide: const BorderSide(
+                            color: AppTheme.borderSubtleColor,
+                          ),
                         ),
                       ),
                     ),
@@ -155,7 +149,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       obscureText: _obscure,
                       autofillHints: const [AutofillHints.password],
                       validator: Validators.password,
-                      style: GoogleFonts.inter(fontSize: 15, color: AppTheme.textPrimaryColor),
+                      style: GoogleFonts.inter(
+                        fontSize: 15,
+                        color: AppTheme.textPrimaryColor,
+                      ),
                       decoration: InputDecoration(
                         hintText: '••••••••',
                         prefixIcon: const Icon(
@@ -177,7 +174,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         fillColor: Colors.white,
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppTheme.borderSubtleColor),
+                          borderSide: const BorderSide(
+                            color: AppTheme.borderSubtleColor,
+                          ),
                         ),
                       ),
                     ),
@@ -189,7 +188,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       child: TextButton(
                         onPressed: () => context.push('/forgot-password'),
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 4,
+                          ),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
@@ -258,74 +260,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               ),
                       ),
                     ),
-                    const SizedBox(height: 20),
-
-                    // Divider "ou"
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Divider(color: AppTheme.borderSubtleColor, thickness: 1),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            'ou',
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              color: AppTheme.textMutedColor,
-                            ),
-                          ),
-                        ),
-                        const Expanded(
-                          child: Divider(color: AppTheme.borderSubtleColor, thickness: 1),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Google Login Button
-                    OutlinedButton(
-                      onPressed: (loading || !Env.isGoogleSignInConfigured) ? null : _google,
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppTheme.textPrimaryColor,
-                        side: const BorderSide(color: AppTheme.borderSubtleColor),
-                        minimumSize: const Size.fromHeight(52),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _GoogleLogoIcon(),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Continuar com Google',
-                            style: GoogleFonts.inter(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimaryColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    if (!Env.isGoogleSignInConfigured)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'Login com Google ficará disponível após a configuração.',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: AppTheme.textMutedColor,
-                          ),
-                        ),
-                      ),
-
                     const SizedBox(height: 32),
 
                     // Footer Links
@@ -361,52 +295,4 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       ),
     );
   }
-}
-
-class _GoogleLogoIcon extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 20,
-      height: 20,
-      child: CustomPaint(
-        painter: _GoogleLogoPainter(),
-      ),
-    );
-  }
-}
-
-class _GoogleLogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final rect = Rect.fromLTWH(0, 0, w, h);
-    final center = Offset(w / 2, h / 2);
-
-    final paintStroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5
-      ..strokeCap = StrokeCap.round;
-
-    // Blue arc + bar
-    paintStroke.color = const Color(0xFF4285F4);
-    canvas.drawArc(rect.deflate(2), -0.5, 1.2, false, paintStroke);
-    canvas.drawLine(Offset(center.dx, center.dy), Offset(w - 2, center.dy), paintStroke);
-
-    // Green arc
-    paintStroke.color = const Color(0xFF34A853);
-    canvas.drawArc(rect.deflate(2), 0.7, 1.3, false, paintStroke);
-
-    // Yellow arc
-    paintStroke.color = const Color(0xFFFBBC05);
-    canvas.drawArc(rect.deflate(2), 2.0, 1.3, false, paintStroke);
-
-    // Red arc
-    paintStroke.color = const Color(0xFFEA4335);
-    canvas.drawArc(rect.deflate(2), 3.3, 1.3, false, paintStroke);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

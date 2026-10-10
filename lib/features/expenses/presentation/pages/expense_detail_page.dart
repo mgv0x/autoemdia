@@ -16,16 +16,19 @@ class ExpenseDetailPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final e = expense;
     final text = Theme.of(context).textTheme;
+    final isMaint = e.id.startsWith('maint_');
+    final maintId = isMaint ? e.id.replaceFirst('maint_', '') : null;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gasto'),
+        title: Text(isMaint ? 'Gasto com Manutenção' : 'Detalhes do Gasto'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline),
-            tooltip: 'Excluir',
-            onPressed: () => _confirmDelete(context, ref),
-          ),
+          if (!isMaint)
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Excluir',
+              onPressed: () => _confirmDelete(context, ref),
+            ),
         ],
       ),
       body: SafeArea(
@@ -49,9 +52,23 @@ class ExpenseDetailPage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Chip(
-                avatar: const Icon(Icons.category_outlined, size: 16),
-                label: Text(e.category),
+              Row(
+                children: [
+                  Chip(
+                    avatar: const Icon(Icons.category_outlined, size: 16),
+                    label: Text(e.category),
+                  ),
+                  if (isMaint) ...[
+                    const SizedBox(width: 8),
+                    Chip(
+                      avatar: const Icon(Icons.build_rounded, size: 16),
+                      label: const Text('Serviço'),
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.tertiaryContainer,
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 20),
               _row(
@@ -60,13 +77,49 @@ class ExpenseDetailPage extends ConsumerWidget {
                 'Data',
                 Formatters.date(e.expenseDate),
               ),
-              const SizedBox(height: 32),
-              FilledButton.icon(
-                onPressed: () =>
-                    context.push('/expenses/${e.id}/edit', extra: e),
-                icon: const Icon(Icons.edit_outlined),
-                label: const Text('Editar'),
-              ),
+              if (isMaint) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Este lançamento é proveniente do registro de uma manutenção.',
+                          style: text.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: () => context.push('/maintenance/$maintId'),
+                  icon: const Icon(Icons.build_outlined),
+                  label: const Text('Ver manutenção vinculada'),
+                ),
+              ] else ...[
+                const SizedBox(height: 32),
+                FilledButton.icon(
+                  onPressed: () =>
+                      context.push('/expenses/${e.id}/edit', extra: e),
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Editar'),
+                ),
+              ],
             ],
           ),
         ),

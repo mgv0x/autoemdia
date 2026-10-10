@@ -2,7 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/local_photo_service.dart';
 import '../../../../shared/providers/firebase_providers.dart';
+import '../../../../shared/providers/shared_preferences_provider.dart';
 import '../../data/firestore_vehicle_repository.dart';
+import '../../domain/mileage_log_entity.dart';
 import '../../domain/vehicle_entity.dart';
 import '../../domain/vehicle_repository.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
@@ -21,12 +23,35 @@ final vehiclesProvider = FutureProvider<List<VehicleEntity>>((ref) async {
   return ref.watch(vehicleRepositoryProvider).getVehicles();
 });
 
-/// ID do veículo ativo selecionado.
-class ActiveVehicleIdNotifier extends Notifier<String?> {
-  @override
-  String? build() => null;
+const _activeVehicleKeyPrefix = 'active_vehicle_id_';
 
-  void set(String? id) => state = id;
+/// ID do veículo ativo selecionado, persistido no SharedPreferences por usuário.
+class ActiveVehicleIdNotifier extends Notifier<String?> {
+  String _key(String? uid) => '$_activeVehicleKeyPrefix${uid ?? 'anonymous'}';
+
+  @override
+  String? build() {
+    final auth = ref.watch(authStreamProvider).value;
+    try {
+      final prefs = ref.watch(sharedPreferencesProvider);
+      return prefs.getString(_key(auth?.id));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> set(String? id) async {
+    final auth = ref.read(authStreamProvider).value;
+    state = id;
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+      if (id == null) {
+        await prefs.remove(_key(auth?.id));
+      } else {
+        await prefs.setString(_key(auth?.id), id);
+      }
+    } catch (_) {}
+  }
 }
 
 final activeVehicleIdProvider =
@@ -34,16 +59,26 @@ final activeVehicleIdProvider =
       ActiveVehicleIdNotifier.new,
     );
 
-/// Veículo ativo selecionado. Padrão: o primeiro da lista.
+/// Veículo ativo selecionado.
+/// Persistente entre sessões e resiliente a remoções.
 final activeVehicleProvider = FutureProvider<VehicleEntity?>((ref) async {
   final vehicles = await ref.watch(vehiclesProvider.future);
   if (vehicles.isEmpty) return null;
   final selectedId = ref.watch(activeVehicleIdProvider);
-  if (selectedId == null) return vehicles.first;
-  return vehicles.firstWhere(
-    (v) => v.id == selectedId,
-    orElse: () => vehicles.first,
-  );
+  if (selectedId != null) {
+    for (final v in vehicles) {
+      if (v.id == selectedId) return v;
+    }
+  }
+  return vehicles.first;
+});
+
+/// Logs históricos de quilometragem do veículo ativo.
+final activeVehicleMileageLogsProvider =
+    FutureProvider<List<MileageLogEntity>>((ref) async {
+  final vehicle = await ref.watch(activeVehicleProvider.future);
+  if (vehicle == null) return [];
+  return ref.watch(vehicleRepositoryProvider).getMileageLogs(vehicle.id);
 });
 
 /// Controller de formulários de veículo.
@@ -65,14 +100,18 @@ class VehicleFormController extends Notifier<AsyncValue<VehicleEntity?>> {
   ) async {
     state = const AsyncLoading();
     final result = await AsyncValue.guard(action);
-    if (!result.hasError) {
+    if (!result.hasError && result.value != null) {
+      // Define o veículo recém-criado/atualizado como ativo
+      await ref.read(activeVehicleIdProvider.notifier).set(result.value!.id);
       ref.invalidate(vehiclesProvider);
       ref.invalidate(activeVehicleProvider);
+      ref.invalidate(activeVehicleMileageLogsProvider);
     }
     state = result;
     return result.value;
   }
 
+  /// Exclui o veículo e remove em cascata todos os dados associados.
   Future<bool> delete(String id) async {
     state = const AsyncLoading();
     final result = await AsyncValue.guard(() async {
@@ -81,7 +120,10 @@ class VehicleFormController extends Notifier<AsyncValue<VehicleEntity?>> {
       return null;
     });
     if (!result.hasError) {
-      ref.read(activeVehicleIdProvider.notifier).set(null);
+      final currentSelected = ref.read(activeVehicleIdProvider);
+      if (currentSelected == id) {
+        await ref.read(activeVehicleIdProvider.notifier).set(null);
+      }
       ref.invalidate(vehiclesProvider);
       ref.invalidate(activeVehicleProvider);
     }
@@ -89,13 +131,18 @@ class VehicleFormController extends Notifier<AsyncValue<VehicleEntity?>> {
     return !result.hasError;
   }
 
-  Future<bool> updateMileage(String vehicleId, int mileage) async {
+  Future<bool> updateMileage(
+    String vehicleId,
+    int mileage, {
+    String source = 'manual',
+  }) async {
     final result = await AsyncValue.guard(
-      () => _repo.updateMileage(vehicleId, mileage),
+      () => _repo.updateMileage(vehicleId, mileage, source: source),
     );
     if (!result.hasError) {
       ref.invalidate(vehiclesProvider);
       ref.invalidate(activeVehicleProvider);
+      ref.invalidate(activeVehicleMileageLogsProvider);
     }
     return !result.hasError;
   }

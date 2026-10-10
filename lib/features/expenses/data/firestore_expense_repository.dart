@@ -18,11 +18,12 @@ class FirestoreExpenseRepository implements ExpenseRepository {
     try {
       final snap = await _col
           .where('vehicle_id', isEqualTo: vehicleId)
-          .orderBy('expense_date', descending: true)
           .get();
-      return snap.docs
+      final list = snap.docs
           .map((d) => ExpenseModel.fromJson(d.data(), id: d.id))
           .toList();
+      list.sort((a, b) => b.expenseDate.compareTo(a.expenseDate));
+      return list;
     } catch (e) {
       throw handleError(e, 'Não foi possível carregar os gastos.');
     }
@@ -31,10 +32,9 @@ class FirestoreExpenseRepository implements ExpenseRepository {
   @override
   Future<ExpenseEntity> create(ExpenseEntity entity) async {
     try {
-      final ref = _col.doc();
+      final ref = entity.id.isNotEmpty ? _col.doc(entity.id) : _col.doc();
       await ref.set(ExpenseModel.toJson(entity));
-      final created = await ref.get();
-      return ExpenseModel.fromJson(created.data()!, id: ref.id);
+      return entity.copyWith(id: ref.id);
     } catch (e) {
       throw handleError(e, 'Não foi possível salvar o gasto.');
     }
@@ -46,8 +46,7 @@ class FirestoreExpenseRepository implements ExpenseRepository {
       await _col
           .doc(entity.id)
           .set(ExpenseModel.toJson(entity), SetOptions(merge: true));
-      final updated = await _col.doc(entity.id).get();
-      return ExpenseModel.fromJson(updated.data()!, id: entity.id);
+      return entity;
     } catch (e) {
       throw handleError(e, 'Não foi possível atualizar o gasto.');
     }

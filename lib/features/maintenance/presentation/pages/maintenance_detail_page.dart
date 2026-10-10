@@ -109,6 +109,20 @@ class MaintenanceDetailPage extends ConsumerWidget {
                   'Valor',
                   Formatters.currency(m.cost!),
                 ),
+              if (m.part != null && m.part!.isNotEmpty)
+                _detailRow(
+                  context,
+                  Icons.settings_suggest_outlined,
+                  'Peça / Marca',
+                  m.part!,
+                ),
+              if (m.workshop != null && m.workshop!.isNotEmpty)
+                _detailRow(
+                  context,
+                  Icons.storefront_outlined,
+                  'Oficina / Local',
+                  m.workshop!,
+                ),
               if (m.notes != null && m.notes!.isNotEmpty) ...[
                 const SizedBox(height: 20),
                 Text(

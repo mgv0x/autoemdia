@@ -53,6 +53,11 @@ abstract final class AppConstants {
   static const notificationChannelDescription =
       'Lembretes de manutenção e revisão do seu veículo.';
 
+  // --- URLs institucionais ---
+  // Substitua pelas URLs reais ao publicar (ex.: seu site).
+  static const privacyPolicyUrl = 'https://autoemdia.com.br/privacidade';
+  static const termsOfUseUrl = 'https://autoemdia.com.br/termos';
+
   // Antecedências (em dias) para notificação de lembrete por data.
   static const reminderNotifyDaysBefore = <int>[30, 7, 0];
   // Antecedência em km para lembrete por quilometragem.

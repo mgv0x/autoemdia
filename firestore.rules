@@ -26,37 +26,61 @@ service cloud.firestore {
       // individualmente, pois o Firestore não herda de parent no rules).
     }
 
-    // manutenções/gastos/lembretes: só de veículos do próprio usuário
-    // (ownership indireta via `vehicle_id` → vehicles.user_id).
+    // manutenções/gastos/lembretes/quilometragem: vinculados ao veículo do próprio usuário
     match /maintenance_records/{docId} {
-      allow read, write: if request.auth != null &&
+      allow read, update: if request.auth != null &&
         exists(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id)) &&
         get(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id))
             .data.user_id == request.auth.uid;
-      // Em create, usamos request.resource.data (ainda não existe resource).
       allow create: if request.auth != null &&
         get(/databases/$(database)/documents/vehicles/$(
             request.resource.data.vehicle_id)).data.user_id == request.auth.uid;
+      allow delete: if request.auth != null && (
+        !exists(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id)) ||
+        get(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id)).data.user_id == request.auth.uid
+      );
     }
 
     match /reminders/{docId} {
-      allow read, write: if request.auth != null &&
+      allow read, update: if request.auth != null &&
         exists(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id)) &&
         get(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id))
             .data.user_id == request.auth.uid;
       allow create: if request.auth != null &&
         get(/databases/$(database)/documents/vehicles/$(
             request.resource.data.vehicle_id)).data.user_id == request.auth.uid;
+      allow delete: if request.auth != null && (
+        !exists(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id)) ||
+        get(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id)).data.user_id == request.auth.uid
+      );
     }
 
     match /expenses/{docId} {
-      allow read, write: if request.auth != null &&
+      allow read, update: if request.auth != null &&
         exists(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id)) &&
         get(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id))
             .data.user_id == request.auth.uid;
       allow create: if request.auth != null &&
         get(/databases/$(database)/documents/vehicles/$(
             request.resource.data.vehicle_id)).data.user_id == request.auth.uid;
+      allow delete: if request.auth != null && (
+        !exists(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id)) ||
+        get(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id)).data.user_id == request.auth.uid
+      );
+    }
+
+    match /mileage_logs/{docId} {
+      allow read, update: if request.auth != null &&
+        exists(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id)) &&
+        get(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id))
+            .data.user_id == request.auth.uid;
+      allow create: if request.auth != null &&
+        get(/databases/$(database)/documents/vehicles/$(
+            request.resource.data.vehicle_id)).data.user_id == request.auth.uid;
+      allow delete: if request.auth != null && (
+        !exists(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id)) ||
+        get(/databases/$(database)/documents/vehicles/$(resource.data.vehicle_id)).data.user_id == request.auth.uid
+      );
     }
 
     // subscriptions: somente a própria assinatura

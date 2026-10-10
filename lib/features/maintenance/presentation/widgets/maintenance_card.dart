@@ -14,6 +14,8 @@ class MaintenanceTimelineCard extends StatelessWidget {
     this.vehicleName,
     this.mileage,
     this.cost,
+    this.workshop,
+    this.part,
     this.onTap,
   });
 
@@ -23,6 +25,8 @@ class MaintenanceTimelineCard extends StatelessWidget {
   final String? vehicleName;
   final int? mileage;
   final double? cost;
+  final String? workshop;
+  final String? part;
   final VoidCallback? onTap;
 
   @override
@@ -51,10 +55,7 @@ class MaintenanceTimelineCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Top Status Accent Bar
-              Container(
-                height: 4,
-                color: statusColor,
-              ),
+              Container(height: 4, color: statusColor),
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -89,9 +90,14 @@ class MaintenanceTimelineCard extends StatelessWidget {
                         ),
                         if (cost != null)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                              color: AppTheme.primaryColor.withValues(
+                                alpha: 0.1,
+                              ),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -107,20 +113,30 @@ class MaintenanceTimelineCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
 
-                    // Date & Mileage Badges
-                    Row(
+                    // Date, Mileage, Workshop & Part Badges Wrap
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
                       children: [
                         _BadgePill(
                           icon: Icons.calendar_today_outlined,
                           label: Formatters.date(date),
                         ),
-                        if (mileage != null) ...[
-                          const SizedBox(width: 8),
+                        if (mileage != null)
                           _BadgePill(
                             icon: Icons.speed_outlined,
                             label: Formatters.mileage(mileage!),
                           ),
-                        ],
+                        if (workshop != null && workshop!.isNotEmpty)
+                          _BadgePill(
+                            icon: Icons.storefront_outlined,
+                            label: workshop!,
+                          ),
+                        if (part != null && part!.isNotEmpty)
+                          _BadgePill(
+                            icon: Icons.settings_suggest_outlined,
+                            label: part!,
+                          ),
                       ],
                     ),
                   ],
@@ -161,12 +177,17 @@ class _BadgePill extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: AppTheme.textMutedColor),
           const SizedBox(width: 5),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.textPrimaryColor,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 160),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textPrimaryColor,
+              ),
             ),
           ),
         ],

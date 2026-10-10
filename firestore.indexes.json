@@ -40,6 +40,14 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "expires_at", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "mileage_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "vehicle_id", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

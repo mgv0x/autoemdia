@@ -80,7 +80,7 @@ class ReminderDetailPage extends ConsumerWidget {
                   onPressed: () async {
                     final ok = await ref
                         .read(reminderControllerProvider.notifier)
-                        .complete(r.id);
+                        .complete(r.id, reminder: r);
                     if (context.mounted && ok) context.pop();
                   },
                   icon: const Icon(Icons.check),

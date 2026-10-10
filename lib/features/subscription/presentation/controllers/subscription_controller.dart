@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
+import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../../shared/providers/analytics_provider.dart';
 import '../../data/subscription_repository.dart';
 
@@ -24,12 +25,22 @@ class SubscriptionController extends Notifier<AsyncValue<ProductDetails?>> {
     state = const AsyncLoading();
     final repo = ref.read(subscriptionRepositoryProvider);
     final result = await AsyncValue.guard(() async {
-      await repo.initialize();
+      await repo.restorePurchases();
       return null;
     });
     state = result;
     ref.invalidate(subscriptionProvider);
+    ref.invalidate(authStreamProvider);
     return !result.hasError;
+  }
+
+  Future<void> toggleDebugPlan() async {
+    state = const AsyncLoading();
+    final repo = ref.read(subscriptionRepositoryProvider);
+    await repo.toggleDebugPlan();
+    state = const AsyncData(null);
+    ref.invalidate(subscriptionProvider);
+    ref.invalidate(authStreamProvider);
   }
 }
 

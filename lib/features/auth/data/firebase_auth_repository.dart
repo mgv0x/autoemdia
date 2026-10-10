@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/errors/error_mapper.dart';
@@ -72,8 +73,21 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<UserProfile> signInWithGoogle() async {
     try {
-      final provider = fb.GoogleAuthProvider();
-      final cred = await _auth.signInWithProvider(provider);
+      // Fluxo nativo Google Sign-In (Android): usa a conta do aparelho.
+      // Requer: SHA-1 do keystore no Firebase Console + Google ativado em
+      // Authentication > Sign-in method.
+      final googleSignIn = GoogleSignIn.instance;
+      await googleSignIn.initialize();
+      final account = await googleSignIn.authenticate();
+      final idToken = account.authentication.idToken;
+      if (idToken == null) {
+        throw const AppFailure(
+          'Não foi possível concluir o login com o Google. Tente novamente.',
+        );
+      }
+
+      final googleCred = fb.GoogleAuthProvider.credential(idToken: idToken);
+      final cred = await _auth.signInWithCredential(googleCred);
       final user = cred.user;
       if (user == null) {
         throw const AppFailure('Não foi possível entrar com o Google.');
@@ -82,6 +96,15 @@ class FirebaseAuthRepository implements AuthRepository {
       return user.toProfile();
     } on AppFailure {
       rethrow;
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        throw const AppFailure('Login com Google cancelado.');
+      }
+      throw AppFailure(
+        'Não foi possível entrar com o Google. Verifique se o Google Play '
+        'Services está atualizado e tente novamente.',
+        e,
+      );
     } catch (e) {
       throw _mapFirebaseAuthError(e);
     }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -37,7 +38,9 @@ class _PremiumPageState extends ConsumerState<PremiumPage> {
     const priceAnnual = 'R\$ 79,90';
     const priceMonthly = 'R\$ 9,90';
     final selectedPrice = _isAnnual ? priceAnnual : priceMonthly;
-    final billingText = _isAnnual ? 'Cobrado anualmente' : 'Cobrado mensalmente';
+    final billingText = _isAnnual
+        ? 'Cobrado anualmente'
+        : 'Cobrado mensalmente';
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -46,6 +49,74 @@ class _PremiumPageState extends ConsumerState<PremiumPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
           children: [
+            // Status do Plano Atual + Alternador de Teste
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: isPremium
+                    ? AppTheme.primaryColor.withValues(alpha: 0.08)
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isPremium
+                      ? AppTheme.primaryColor.withValues(alpha: 0.3)
+                      : AppTheme.borderSubtleColor,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isPremium ? Icons.verified_rounded : Icons.info_outline_rounded,
+                    color: isPremium ? AppTheme.primaryColor : AppTheme.textMutedColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isPremium ? 'Plano Premium Ativo' : 'Plano Gratuito Ativo',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isPremium ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
+                          ),
+                        ),
+                        Text(
+                          isPremium
+                              ? 'Todos os recursos avançados liberados'
+                              : '1 veículo • Recursos avançados bloqueados',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: AppTheme.textMutedColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (kDebugMode)
+                    OutlinedButton(
+                      onPressed: () async {
+                        await ref
+                            .read(subscriptionControllerProvider.notifier)
+                            .toggleDebugPlan();
+                        ref.invalidate(subscriptionProvider);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      child: Text(
+                        isPremium ? 'Mudar p/ Grátis' : 'Mudar p/ Premium',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
             // Hero Visual Box
             Container(
               height: 180,
@@ -65,9 +136,7 @@ class _PremiumPageState extends ConsumerState<PremiumPage> {
                 fit: StackFit.expand,
                 children: [
                   // High Tech Grid Pattern Graphic
-                  CustomPaint(
-                    painter: _TechBackgroundPainter(),
-                  ),
+                  CustomPaint(painter: _TechBackgroundPainter()),
                   // Glowing Diamond Icon
                   Center(
                     child: Container(
@@ -126,11 +195,17 @@ class _PremiumPageState extends ConsumerState<PremiumPage> {
                 decoration: BoxDecoration(
                   color: AppTheme.successColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: AppTheme.successColor.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.check_circle_rounded, size: 40, color: AppTheme.successColor),
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      size: 40,
+                      color: AppTheme.successColor,
+                    ),
                     const SizedBox(height: 10),
                     Text(
                       'Você é um assinante Premium!',
@@ -152,6 +227,24 @@ class _PremiumPageState extends ConsumerState<PremiumPage> {
                     OutlinedButton(
                       onPressed: () => _confirmCancel(context),
                       child: const Text('Gerenciar assinatura'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () async {
+                        await ref
+                            .read(subscriptionControllerProvider.notifier)
+                            .toggleDebugPlan();
+                        if (context.mounted) {
+                          showAppSnackBar(
+                            context,
+                            'Plano alternado para Gratuito para testes.',
+                          );
+                        }
+                      },
+                      child: const Text(
+                        'Alternar para Gratuito (Modo Teste)',
+                        style: TextStyle(fontSize: 12),
+                      ),
                     ),
                   ],
                 ),
@@ -175,15 +268,23 @@ class _PremiumPageState extends ConsumerState<PremiumPage> {
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
-                            color: _isAnnual ? Colors.white : Colors.transparent,
+                            color: _isAnnual
+                                ? Colors.white
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(10),
                             border: _isAnnual
-                                ? Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3))
+                                ? Border.all(
+                                    color: AppTheme.primaryColor.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                  )
                                 : null,
                             boxShadow: _isAnnual
                                 ? [
                                     BoxShadow(
-                                      color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                                      color: AppTheme.primaryColor.withValues(
+                                        alpha: 0.08,
+                                      ),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -196,8 +297,12 @@ class _PremiumPageState extends ConsumerState<PremiumPage> {
                                 'Anual (R\$ 79,90)',
                                 style: GoogleFonts.inter(
                                   fontSize: 13,
-                                  fontWeight: _isAnnual ? FontWeight.w700 : FontWeight.w500,
-                                  color: _isAnnual ? AppTheme.primaryColor : AppTheme.textMutedColor,
+                                  fontWeight: _isAnnual
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: _isAnnual
+                                      ? AppTheme.primaryColor
+                                      : AppTheme.textMutedColor,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -224,15 +329,23 @@ class _PremiumPageState extends ConsumerState<PremiumPage> {
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: !_isAnnual ? Colors.white : Colors.transparent,
+                            color: !_isAnnual
+                                ? Colors.white
+                                : Colors.transparent,
                             borderRadius: BorderRadius.circular(10),
                             border: !_isAnnual
-                                ? Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3))
+                                ? Border.all(
+                                    color: AppTheme.primaryColor.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                  )
                                 : null,
                             boxShadow: !_isAnnual
                                 ? [
                                     BoxShadow(
-                                      color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                                      color: AppTheme.primaryColor.withValues(
+                                        alpha: 0.08,
+                                      ),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -244,8 +357,12 @@ class _PremiumPageState extends ConsumerState<PremiumPage> {
                               'Mensal (R\$ 9,90)',
                               style: GoogleFonts.inter(
                                 fontSize: 13,
-                                fontWeight: !_isAnnual ? FontWeight.w700 : FontWeight.w500,
-                                color: !_isAnnual ? AppTheme.primaryColor : AppTheme.textMutedColor,
+                                fontWeight: !_isAnnual
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: !_isAnnual
+                                    ? AppTheme.primaryColor
+                                    : AppTheme.textMutedColor,
                               ),
                             ),
                           ),
@@ -257,24 +374,18 @@ class _PremiumPageState extends ConsumerState<PremiumPage> {
               ),
               const SizedBox(height: 24),
 
-              // Benefits Bento Grid
-              _BenefitCard(
-                icon: Icons.manage_accounts_outlined,
-                title: 'Múltiplos Veículos',
-                description: 'Cadastre até 5 carros na mesma conta e gerencie tudo em um só lugar.',
+              // Tabela Comparativa de Recursos (Grátis vs Premium)
+              Text(
+                'COMPARAÇÃO DE PLANOS',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                  color: AppTheme.textMutedColor,
+                ),
               ),
-              const SizedBox(height: 12),
-              _BenefitCard(
-                icon: Icons.insights_rounded,
-                title: 'Relatórios Detalhados',
-                description: 'Gráficos de gastos, consumo e previsão de manutenção futura.',
-              ),
-              const SizedBox(height: 12),
-              _BenefitCard(
-                icon: Icons.history_rounded,
-                title: 'Histórico Ilimitado',
-                description: 'Acesse todos os registros e comprovantes de serviços realizados.',
-              ),
+              const SizedBox(height: 10),
+              const _FeatureComparisonTable(),
               const SizedBox(height: 24),
 
               // Summary & Checkout Card
@@ -342,7 +453,9 @@ class _PremiumPageState extends ConsumerState<PremiumPage> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.35),
+                            color: AppTheme.primaryColor.withValues(
+                              alpha: 0.35,
+                            ),
                             blurRadius: 14,
                             offset: const Offset(0, 4),
                           ),
@@ -414,7 +527,9 @@ class _PremiumPageState extends ConsumerState<PremiumPage> {
     final product = products.where((p) => p.id == targetId).firstOrNull;
 
     if (product != null) {
-      final ok = await ref.read(subscriptionControllerProvider.notifier).buy(product);
+      final ok = await ref
+          .read(subscriptionControllerProvider.notifier)
+          .buy(product);
       if (mounted) {
         showAppSnackBar(
           context,
@@ -423,10 +538,47 @@ class _PremiumPageState extends ConsumerState<PremiumPage> {
         );
       }
     } else {
-      showAppSnackBar(
-        context,
-        'Plano ${_isAnnual ? "Anual" : "Mensal"} selecionado. Conectando com a Google Play Store...',
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(
+                Icons.workspace_premium_rounded,
+                color: AppTheme.primaryColor,
+              ),
+              SizedBox(width: 8),
+              Text('Ativar Assinatura'),
+            ],
+          ),
+          content: Text(
+            'Plano ${_isAnnual ? "Anual (R\$ 79,90)" : "Mensal (R\$ 9,90)"} selecionado.\n\n'
+            'A loja Google Play está em modo de teste/sandbox nesta versão.\n'
+            'Deseja confirmar a ativação do plano Premium agora?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Confirmar Assinatura'),
+            ),
+          ],
+        ),
       );
+      if (ok == true && mounted) {
+        await ref
+            .read(subscriptionControllerProvider.notifier)
+            .toggleDebugPlan();
+        if (mounted) {
+          showAppSnackBar(
+            context,
+            'Parabéns! Assinatura Premium ativada com sucesso.',
+          );
+        }
+      }
     }
   }
 
@@ -449,78 +601,6 @@ class _PremiumPageState extends ConsumerState<PremiumPage> {
               ref.read(analyticsServiceProvider).subscriptionCancelled();
             },
             child: const Text('Abrir Play Store'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Benefit Card Bento
-class _BenefitCard extends StatelessWidget {
-  const _BenefitCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
-
-  final IconData icon;
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.borderSubtleColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.15)),
-            ),
-            child: Icon(icon, size: 20, color: AppTheme.primaryColor),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimaryColor,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  description,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: AppTheme.textMutedColor,
-                    height: 1.3,
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
@@ -556,4 +636,164 @@ class _TechBackgroundPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Tabela Comparativa de Recursos: Grátis vs Premium
+class _FeatureComparisonTable extends StatelessWidget {
+  const _FeatureComparisonTable();
+
+  static const _features = [
+    ('1 veículo', 'Sim', 'Sim'),
+    ('Manutenções', 'Sim', 'Sim'),
+    ('Gastos', 'Sim', 'Sim'),
+    ('Lembretes', 'Sim', 'Sim'),
+    ('Histórico', 'Sim', 'Sim'),
+    ('Notificações', 'Sim', 'Sim'),
+    ('Múltiplos veículos', 'Não', 'Sim'),
+    ('Saúde do veículo', 'Básica', 'Avançada'),
+    ('Relatórios', 'Básico', 'Avançado'),
+    ('Custo por km', 'Não', 'Sim'),
+    ('Custo total do veículo', 'Não', 'Sim'),
+    ('Previsão de gastos', 'Não', 'Sim'),
+    ('Insights inteligentes', 'Não', 'Sim'),
+    ('Dossiê/PDF', 'Não', 'Sim'),
+    ('Anexos de fotos', 'Limitado', 'Ilimitado'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.borderSubtleColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              color: AppTheme.surfaceVariantColor.withValues(alpha: 0.6),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: Text(
+                      'RECURSO',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textMutedColor,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      'GRÁTIS',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textMutedColor,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      'PREMIUM',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.primaryColor,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            for (var i = 0; i < _features.length; i++) ...[
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                color: i.isEven
+                    ? Colors.white
+                    : AppTheme.surfaceVariantColor.withValues(alpha: 0.2),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: Text(
+                        _features[i].$1,
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimaryColor,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: _buildCell(_features[i].$2, isPremium: false),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: _buildCell(_features[i].$3, isPremium: true),
+                    ),
+                  ],
+                ),
+              ),
+              if (i < _features.length - 1)
+                const Divider(height: 1, color: AppTheme.borderSubtleColor),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCell(String text, {required bool isPremium}) {
+    if (text == 'Sim') {
+      return const Center(
+        child: Icon(
+          Icons.check_circle_rounded,
+          size: 16,
+          color: AppTheme.successColor,
+        ),
+      );
+    }
+    if (text == 'Não') {
+      return const Center(
+        child: Icon(
+          Icons.cancel_rounded,
+          size: 16,
+          color: Color(0xFF94A3B8),
+        ),
+      );
+    }
+    return Center(
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: isPremium ? FontWeight.w700 : FontWeight.w500,
+          color: isPremium ? AppTheme.primaryColor : AppTheme.textMutedColor,
+        ),
+      ),
+    );
+  }
 }

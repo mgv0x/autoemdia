@@ -5,9 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../../app/theme.dart';
 import '../../../../../core/constants/app_constants.dart';
+import '../../../../../core/utils/formatters.dart';
 import '../../../../../shared/widgets/app_states.dart';
 import '../../../../../shared/widgets/app_top_bar.dart';
 import '../../../vehicle/presentation/controllers/vehicle_controller.dart';
+import '../../domain/maintenance_entity.dart';
 import '../controllers/maintenance_controller.dart';
 import '../widgets/maintenance_card.dart';
 
@@ -15,7 +17,8 @@ class MaintenanceListPage extends ConsumerStatefulWidget {
   const MaintenanceListPage({super.key});
 
   @override
-  ConsumerState<MaintenanceListPage> createState() => _MaintenanceListPageState();
+  ConsumerState<MaintenanceListPage> createState() =>
+      _MaintenanceListPageState();
 }
 
 class _MaintenanceListPageState extends ConsumerState<MaintenanceListPage> {
@@ -72,11 +75,24 @@ class _MaintenanceListPageState extends ConsumerState<MaintenanceListPage> {
 
           if (_searchQuery.isNotEmpty) {
             filtered = filtered
-                .where((m) =>
-                    m.description.toLowerCase().contains(_searchQuery) ||
-                    m.category.toLowerCase().contains(_searchQuery))
+                .where(
+                  (m) =>
+                      m.description.toLowerCase().contains(_searchQuery) ||
+                      m.category.toLowerCase().contains(_searchQuery) ||
+                      (m.part?.toLowerCase().contains(_searchQuery) ?? false) ||
+                      (m.workshop?.toLowerCase().contains(_searchQuery) ??
+                          false),
+                )
                 .toList();
           }
+
+          // Agrupamento por ano em ordem decrescente (2026, 2025...)
+          final groupedByYear = <int, List<MaintenanceEntity>>{};
+          for (final m in filtered) {
+            groupedByYear.putIfAbsent(m.serviceDate.year, () => []).add(m);
+          }
+          final sortedYears = groupedByYear.keys.toList()
+            ..sort((a, b) => b.compareTo(a));
 
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(maintenanceListProvider),
@@ -106,7 +122,9 @@ class _MaintenanceListPageState extends ConsumerState<MaintenanceListPage> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppTheme.borderSubtleColor),
+                            border: Border.all(
+                              color: AppTheme.borderSubtleColor,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.02),
@@ -122,7 +140,7 @@ class _MaintenanceListPageState extends ConsumerState<MaintenanceListPage> {
                               color: AppTheme.textPrimaryColor,
                             ),
                             decoration: InputDecoration(
-                              hintText: 'Buscar serviço ou peça...',
+                              hintText: 'Buscar serviço, peça ou oficina...',
                               hintStyle: GoogleFonts.inter(
                                 fontSize: 14,
                                 color: AppTheme.textMutedColor,
@@ -135,7 +153,9 @@ class _MaintenanceListPageState extends ConsumerState<MaintenanceListPage> {
                               border: InputBorder.none,
                               enabledBorder: InputBorder.none,
                               focusedBorder: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                              ),
                             ),
                           ),
                         ),
@@ -147,16 +167,21 @@ class _MaintenanceListPageState extends ConsumerState<MaintenanceListPage> {
                           child: ListView.separated(
                             scrollDirection: Axis.horizontal,
                             itemCount: categories.length,
-                            separatorBuilder: (context, index) => const SizedBox(width: 8),
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(width: 8),
                             itemBuilder: (context, i) {
                               final cat = categories[i];
-                              final isSelected = (cat == 'Todos' && currentFilter == null) ||
+                              final isSelected =
+                                  (cat == 'Todos' && currentFilter == null) ||
                                   (cat == currentFilter);
 
                               return InkWell(
                                 onTap: () {
                                   ref
-                                      .read(maintenanceCategoryFilterProvider.notifier)
+                                      .read(
+                                        maintenanceCategoryFilterProvider
+                                            .notifier,
+                                      )
                                       .set(cat == 'Todos' ? null : cat);
                                 },
                                 borderRadius: BorderRadius.circular(20),
@@ -168,12 +193,16 @@ class _MaintenanceListPageState extends ConsumerState<MaintenanceListPage> {
                                   ),
                                   decoration: BoxDecoration(
                                     color: isSelected
-                                        ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                                        ? AppTheme.primaryColor.withValues(
+                                            alpha: 0.15,
+                                          )
                                         : Colors.white,
                                     borderRadius: BorderRadius.circular(20),
                                     border: Border.all(
                                       color: isSelected
-                                          ? AppTheme.primaryColor.withValues(alpha: 0.3)
+                                          ? AppTheme.primaryColor.withValues(
+                                              alpha: 0.3,
+                                            )
                                           : AppTheme.borderSubtleColor,
                                     ),
                                   ),
@@ -206,7 +235,10 @@ class _MaintenanceListPageState extends ConsumerState<MaintenanceListPage> {
                 if (filtered.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 32,
+                      ),
                       child: Center(
                         child: Column(
                           children: [
@@ -245,54 +277,121 @@ class _MaintenanceListPageState extends ConsumerState<MaintenanceListPage> {
                     ),
                   )
                 else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          if (index == filtered.length) {
-                            // End of List Indicator
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 32),
-                              child: Column(
+                  ...sortedYears.map((year) {
+                    final items = groupedByYear[year]!;
+                    final yearTotal = items.fold<double>(
+                      0.0,
+                      (acc, item) => acc + (item.cost ?? 0.0),
+                    );
+
+                    return SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      sliver: SliverMainAxisGroup(
+                        slivers: [
+                          // Cabeçalho do Ano
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                top: 12,
+                                bottom: 12,
+                              ),
+                              child: Row(
                                 children: [
-                                  const Icon(
-                                    Icons.history_toggle_off_rounded,
-                                    size: 36,
-                                    color: AppTheme.borderSubtleColor,
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor.withValues(
+                                        alpha: 0.12,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      '$year',
+                                      style: GoogleFonts.spaceGrotesk(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                    ),
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Container(
+                                      height: 1,
+                                      color: AppTheme.borderSubtleColor,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
                                   Text(
-                                    'Fim do histórico de manutenções',
+                                    '${items.length} ${items.length == 1 ? 'registro' : 'registros'}${yearTotal > 0 ? ' • ${Formatters.currency(yearTotal)}' : ''}',
                                     style: GoogleFonts.inter(
-                                      fontSize: 13,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
                                       color: AppTheme.textMutedColor,
                                     ),
                                   ),
                                 ],
                               ),
-                            );
-                          }
-
-                          final m = filtered[index];
-                          final isLast = index == filtered.length - 1;
-
-                          return _TimelineItemRow(
-                            isFirst: index == 0,
-                            isLast: isLast,
-                            category: m.category,
-                            child: MaintenanceTimelineCard(
-                              title: m.description,
-                              category: m.category,
-                              date: m.serviceDate,
-                              vehicleName: vehicle?.displayName,
-                              mileage: m.mileage,
-                              cost: m.cost,
-                              onTap: () => context.push('/maintenance/${m.id}', extra: m),
                             ),
-                          );
-                        },
-                        childCount: filtered.length + 1,
+                          ),
+                          // Itens daquele ano na Timeline
+                          SliverList(
+                            delegate: SliverChildBuilderDelegate((
+                              context,
+                              index,
+                            ) {
+                              final m = items[index];
+                              final isFirst = index == 0;
+                              final isLast = index == items.length - 1;
+
+                              return _TimelineItemRow(
+                                isFirst: isFirst,
+                                isLast: isLast,
+                                category: m.category,
+                                child: MaintenanceTimelineCard(
+                                  title: m.description,
+                                  category: m.category,
+                                  date: m.serviceDate,
+                                  vehicleName: vehicle?.displayName,
+                                  mileage: m.mileage,
+                                  cost: m.cost,
+                                  workshop: m.workshop,
+                                  part: m.part,
+                                  onTap: () => context.push(
+                                    '/maintenance/${m.id}',
+                                    extra: m,
+                                  ),
+                                ),
+                              );
+                            }, childCount: items.length),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                if (filtered.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.history_toggle_off_rounded,
+                            size: 32,
+                            color: AppTheme.borderSubtleColor,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Fim do histórico de manutenções',
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: AppTheme.textMutedColor,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

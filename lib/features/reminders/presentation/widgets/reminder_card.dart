@@ -33,10 +33,10 @@ class ReminderTechCard extends StatelessWidget {
     final accentColor = isDone
         ? AppTheme.successColor
         : isOverdue
-            ? AppTheme.errorColor
-            : isUpcoming
-                ? AppTheme.warningColor
-                : AppTheme.primaryColor;
+        ? AppTheme.errorColor
+        : isUpcoming
+        ? AppTheme.warningColor
+        : AppTheme.primaryColor;
 
     final icon = _categoryIcon(reminder.category ?? '');
 
@@ -69,10 +69,7 @@ class ReminderTechCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Top Status Accent Bar
-              Container(
-                height: 3,
-                color: accentColor,
-              ),
+              Container(height: 3, color: accentColor),
 
               Padding(
                 padding: const EdgeInsets.all(16),
@@ -130,10 +127,14 @@ class ReminderTechCard extends StatelessWidget {
                                         vertical: 3,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: accentColor.withValues(alpha: 0.1),
+                                        color: accentColor.withValues(
+                                          alpha: 0.1,
+                                        ),
                                         borderRadius: BorderRadius.circular(6),
                                         border: Border.all(
-                                          color: accentColor.withValues(alpha: 0.2),
+                                          color: accentColor.withValues(
+                                            alpha: 0.2,
+                                          ),
                                         ),
                                       ),
                                       child: Text(
@@ -167,7 +168,10 @@ class ReminderTechCard extends StatelessWidget {
                     // Bottom Action for Overdue or Active items
                     if (isOverdue && !isDone) ...[
                       const SizedBox(height: 12),
-                      const Divider(height: 1, color: AppTheme.borderSubtleColor),
+                      const Divider(
+                        height: 1,
+                        color: AppTheme.borderSubtleColor,
+                      ),
                       const SizedBox(height: 10),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -189,10 +193,14 @@ class ReminderTechCard extends StatelessWidget {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                color: AppTheme.primaryColor.withValues(
+                                  alpha: 0.1,
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                                  color: AppTheme.primaryColor.withValues(
+                                    alpha: 0.2,
+                                  ),
                                 ),
                               ),
                               child: Text(

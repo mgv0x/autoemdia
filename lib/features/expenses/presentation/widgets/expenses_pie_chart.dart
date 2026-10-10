@@ -124,10 +124,7 @@ class _LegendRow extends StatelessWidget {
             color: color,
             shape: BoxShape.circle,
             boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.4),
-                blurRadius: 4,
-              ),
+              BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 4),
             ],
           ),
         ),

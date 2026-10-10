@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../../../core/constants/app_constants.dart';
+import '../../../../../app/theme.dart';
 import '../../../../../core/errors/error_mapper.dart';
 import '../../../../../core/utils/snackbar.dart';
 import '../../../../../core/utils/validators.dart';
+import '../../../../../core/services/ad_manager.dart';
 import '../../../../../shared/providers/analytics_provider.dart';
 import '../../../reminders/domain/reminder_entity.dart';
 import '../../../reminders/presentation/controllers/reminder_controller.dart';
+import '../../../subscription/presentation/controllers/subscription_controller.dart';
+import '../../../vehicle/domain/vehicle_type_config.dart';
 import '../../../vehicle/presentation/controllers/vehicle_controller.dart';
 import '../../domain/maintenance_entity.dart';
 import '../controllers/maintenance_controller.dart';
@@ -31,15 +35,23 @@ class _MaintenanceFormPageState extends ConsumerState<MaintenanceFormPage> {
   late final TextEditingController _description;
   late final TextEditingController _mileage;
   late final TextEditingController _cost;
+  late final TextEditingController _part;
+  late final TextEditingController _workshop;
   late final TextEditingController _notes;
   late final TextEditingController _nextMileage;
 
   String? _category;
   DateTime _serviceDate = DateTime.now();
   DateTime? _nextDate;
+  bool _detailsExpanded = false;
 
-  bool _showMileageLowerWarning = false;
   bool get _isEditing => widget.maintenance != null;
+  bool get _showMileageLowerWarning {
+    final vehicle = ref.watch(activeVehicleProvider).value;
+    if (vehicle == null) return false;
+    final km = Validators.parseMileage(_mileage.text);
+    return km != null && km < vehicle.currentMileage;
+  }
 
   @override
   void initState() {
@@ -51,12 +63,24 @@ class _MaintenanceFormPageState extends ConsumerState<MaintenanceFormPage> {
     _cost = TextEditingController(
       text: m?.cost == null ? '' : m!.cost!.toStringAsFixed(2),
     );
+    _part = TextEditingController(text: m?.part ?? '');
+    _workshop = TextEditingController(text: m?.workshop ?? '');
     _notes = TextEditingController(text: m?.notes ?? '');
     _nextMileage = TextEditingController(
       text: m?.nextMileage?.toString() ?? '',
     );
     _serviceDate = m?.serviceDate ?? DateTime.now();
     _nextDate = m?.nextDate;
+
+    // Se já havia dados em detalhes, iniciar expandido na edição
+    if (m != null &&
+        ((m.part != null && m.part!.isNotEmpty) ||
+            (m.workshop != null && m.workshop!.isNotEmpty) ||
+            (m.notes != null && m.notes!.isNotEmpty) ||
+            m.nextMileage != null ||
+            m.nextDate != null)) {
+      _detailsExpanded = true;
+    }
   }
 
   @override
@@ -64,6 +88,8 @@ class _MaintenanceFormPageState extends ConsumerState<MaintenanceFormPage> {
     _description.dispose();
     _mileage.dispose();
     _cost.dispose();
+    _part.dispose();
+    _workshop.dispose();
     _notes.dispose();
     _nextMileage.dispose();
     super.dispose();
@@ -100,7 +126,7 @@ class _MaintenanceFormPageState extends ConsumerState<MaintenanceFormPage> {
     }
 
     final mileage = Validators.parseMileage(_mileage.text);
-    // Regra: impedir quilometragem menor que a atual sem confirmação.
+    // Regra: impedir quilometragem menor que a atual sem confirmação explícita
     if (mileage != null &&
         mileage < vehicle.currentMileage &&
         !confirmedLowerKm) {
@@ -109,7 +135,7 @@ class _MaintenanceFormPageState extends ConsumerState<MaintenanceFormPage> {
         builder: (ctx) => AlertDialog(
           title: const Text('Quilometragem menor'),
           content: Text(
-            'A quilometragem informada (${mileage} km) é menor que a atual '
+            'A quilometragem informada ($mileage km) é menor que a atual '
             '(${vehicle.currentMileage} km). Deseja continuar mesmo assim?',
           ),
           actions: [
@@ -137,6 +163,8 @@ class _MaintenanceFormPageState extends ConsumerState<MaintenanceFormPage> {
       serviceDate: _serviceDate,
       mileage: mileage,
       cost: Validators.parseMoney(_cost.text),
+      part: _part.text.trim().isEmpty ? null : _part.text.trim(),
+      workshop: _workshop.text.trim().isEmpty ? null : _workshop.text.trim(),
       notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
       nextMileage: Validators.parseMileage(_nextMileage.text),
       nextDate: _nextDate,
@@ -150,7 +178,7 @@ class _MaintenanceFormPageState extends ConsumerState<MaintenanceFormPage> {
     if (!mounted) return;
 
     if (saved != null) {
-      // Se informou próxima manutenção (data ou km), gera lembrete automático.
+      // Se informou próxima manutenção (data ou km), gera lembrete automático vinculado
       if (saved.nextMileage != null || saved.nextDate != null) {
         await _createAutoReminder(saved);
       }
@@ -160,7 +188,13 @@ class _MaintenanceFormPageState extends ConsumerState<MaintenanceFormPage> {
             .updateMileage(vehicle.id, saved.mileage!);
       }
       ref.read(analyticsServiceProvider).maintenanceCreated();
+      if (!mounted) return;
+      final isPremium = ref.read(isPremiumProvider).value ?? false;
       context.pop(saved);
+      AdManager.showInterstitialOnActionCompleted(
+        origin: 'maintenance_form_saved',
+        isPremium: isPremium,
+      );
     } else {
       final err = ref.read(maintenanceFormControllerProvider).error;
       showAppSnackBar(context, handleError(err ?? '').message, isError: true);
@@ -175,15 +209,43 @@ class _MaintenanceFormPageState extends ConsumerState<MaintenanceFormPage> {
       category: m.category,
       dueDate: m.nextDate,
       dueMileage: m.nextMileage,
+      sourceMaintenanceId: m.id,
     );
     await ref.read(reminderControllerProvider.notifier).create(reminder);
     ref.read(analyticsServiceProvider).reminderCreated();
+  }
+
+  void _applySuggestion(
+    MaintenanceIntervalSuggestion s,
+    int currentMileage,
+  ) {
+    setState(() {
+      _description.text = s.title;
+      _category = s.category;
+      if (s.intervalKm != null) {
+        _nextMileage.text = (currentMileage + s.intervalKm!).toString();
+        _detailsExpanded = true;
+      }
+      if (s.intervalMonths != null) {
+        _nextDate = DateTime.now().add(Duration(days: s.intervalMonths! * 30));
+        _detailsExpanded = true;
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final loading = ref.watch(maintenanceFormControllerProvider).isLoading;
+    final vehicle = ref.watch(activeVehicleProvider).value;
+    final config = vehicle != null
+        ? VehicleTypeConfig.of(vehicle.type)
+        : VehicleTypeConfig.carConfig;
+    final currentKm = vehicle?.currentMileage ?? 0;
+    final availableCategories =
+        config.maintenanceCategories.contains(_category) || _category == null
+            ? config.maintenanceCategories
+            : [_category!, ...config.maintenanceCategories];
 
     return Scaffold(
       appBar: AppBar(
@@ -197,13 +259,60 @@ class _MaintenanceFormPageState extends ConsumerState<MaintenanceFormPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Sugestões Contextuais (Moto / Carro)
+                if (!_isEditing && config.intervalSuggestions.isNotEmpty) ...[
+                  Text(
+                    'Sugestões para ${config.label.toLowerCase()}:',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textMutedColor,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 38,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: config.intervalSuggestions.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                      itemBuilder: (context, i) {
+                        final s = config.intervalSuggestions[i];
+                        return ActionChip(
+                          avatar: Icon(
+                            config.icon,
+                            size: 16,
+                            color: AppTheme.primaryColor,
+                          ),
+                          label: Text('${s.title} (${s.summary})'),
+                          labelStyle: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimaryColor,
+                          ),
+                          backgroundColor: Colors.white,
+                          side: const BorderSide(
+                            color: AppTheme.borderSubtleColor,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          onPressed: () => _applySuggestion(s, currentKm),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
+                // 1. Categoria
                 DropdownButtonFormField<String>(
                   initialValue: _category,
                   decoration: const InputDecoration(
                     labelText: 'Categoria',
                     prefixIcon: Icon(Icons.category_outlined),
                   ),
-                  items: AppConstants.maintenanceCategories
+                  items: availableCategories
                       .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                       .toList(),
                   onChanged: (v) => setState(() => _category = v),
@@ -211,38 +320,39 @@ class _MaintenanceFormPageState extends ConsumerState<MaintenanceFormPage> {
                       v == null ? 'Selecione uma categoria.' : null,
                 ),
                 const SizedBox(height: 16),
+
+                // 2. Descrição
                 TextFormField(
                   controller: _description,
                   textCapitalization: TextCapitalization.sentences,
                   validator: (v) => Validators.required(v, 'Descrição'),
-                  decoration: const InputDecoration(
-                    labelText: 'Descrição',
-                    hintText: 'Ex.: Troca de óleo',
-                    prefixIcon: Icon(Icons.build_outlined),
+                  decoration: InputDecoration(
+                    labelText: 'Descrição do serviço',
+                    hintText: config.serviceDescriptionHint,
+                    prefixIcon: const Icon(Icons.build_outlined),
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickDate(isNext: false),
-                        icon: const Icon(Icons.calendar_today, size: 18),
-                        label: Text(
-                          'Data: ${_formatDate(_serviceDate)}',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 14,
-                          ),
-                        ),
-                      ),
+
+                // 3. Data do serviço
+                OutlinedButton.icon(
+                  onPressed: () => _pickDate(isNext: false),
+                  icon: const Icon(Icons.calendar_today, size: 18),
+                  label: Text(
+                    'Data: ${_formatDate(_serviceDate)}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    alignment: Alignment.centerLeft,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
                     ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 16),
+
+                // 4. Quilometragem no serviço
                 TextFormField(
                   controller: _mileage,
                   keyboardType: TextInputType.number,
@@ -259,13 +369,15 @@ class _MaintenanceFormPageState extends ConsumerState<MaintenanceFormPage> {
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      'A quilometragem é menor que a atual.',
+                      'Atenção: quilometragem menor que a atual registrada.',
                       style: text.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.error,
                       ),
                     ),
                   ),
                 const SizedBox(height: 16),
+
+                // 5. Valor
                 TextFormField(
                   controller: _cost,
                   keyboardType: const TextInputType.numberWithOptions(
@@ -273,58 +385,133 @@ class _MaintenanceFormPageState extends ConsumerState<MaintenanceFormPage> {
                   ),
                   validator: (v) => Validators.money(v, allowEmpty: true),
                   decoration: const InputDecoration(
-                    labelText: 'Valor (R\$)',
+                    labelText: 'Valor total (R\$)',
+                    hintText: '0,00',
                     prefixIcon: Icon(Icons.attach_money),
                   ),
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _notes,
-                  maxLines: 3,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    labelText: 'Observação',
-                    alignLabelWithHint: true,
+                const SizedBox(height: 20),
+
+                // Divisor com Progressive Disclosure: Mais detalhes
+                Theme(
+                  data: Theme.of(context).copyWith(
+                    dividerColor: Colors.transparent,
                   ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Próxima manutenção',
-                  style: text.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _nextMileage,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  validator: (v) => Validators.mileage(v, allowEmpty: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Por quilometragem',
-                    hintText: 'Ex.: 100000',
-                    suffixText: 'km',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () => _pickDate(isNext: true),
-                  icon: const Icon(Icons.event_available_outlined, size: 18),
-                  label: Text(
-                    _nextDate == null
-                        ? 'Escolher data da próxima manutenção'
-                        : 'Data: ${_formatDate(_nextDate!)}',
-                  ),
-                ),
-                if (_nextMileage.text.isNotEmpty || _nextDate != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Um lembrete será criado automaticamente.',
-                      style: text.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  child: ExpansionTile(
+                    initiallyExpanded: _detailsExpanded,
+                    onExpansionChanged: (expanded) =>
+                        setState(() => _detailsExpanded = expanded),
+                    tilePadding: EdgeInsets.zero,
+                    title: Text(
+                      'Mais detalhes (opcional)',
+                      style: text.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
+                    children: [
+                      const SizedBox(height: 8),
+
+                      // Peça / Marca / Componente
+                      TextFormField(
+                        controller: _part,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          labelText: 'Marca / Peça utilizada',
+                          hintText: config.partHint,
+                          prefixIcon: const Icon(Icons.settings_suggest_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Oficina / Prestador
+                      TextFormField(
+                        controller: _workshop,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          labelText: 'Oficina / Estabelecimento',
+                          hintText: config.workshopHint,
+                          prefixIcon: const Icon(Icons.storefront_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Observações
+                      TextFormField(
+                        controller: _notes,
+                        maxLines: 3,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: const InputDecoration(
+                          labelText: 'Observações adicionais',
+                          alignLabelWithHint: true,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Seção Próxima manutenção
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Agendar próxima manutenção',
+                          style: text.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _nextMileage,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        validator: (v) =>
+                            Validators.mileage(v, allowEmpty: true),
+                        decoration: const InputDecoration(
+                          labelText: 'Próxima km',
+                          hintText: 'Ex.: 100000',
+                          suffixText: 'km',
+                          prefixIcon: Icon(Icons.trending_up_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () => _pickDate(isNext: true),
+                        icon: const Icon(
+                          Icons.event_available_outlined,
+                          size: 18,
+                        ),
+                        label: Text(
+                          _nextDate == null
+                              ? 'Definir próxima data limite'
+                              : 'Próxima data: ${_formatDate(_nextDate!)}',
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                        ),
+                      ),
+                      if (_nextMileage.text.isNotEmpty || _nextDate != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            'Um lembrete será criado automaticamente vinculado a este serviço.',
+                            style: text.bodySmall?.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                    ],
                   ),
-                const SizedBox(height: 32),
+                ),
+
+                const SizedBox(height: 28),
                 FilledButton(
                   onPressed: loading ? null : () => _submit(),
                   child: loading
@@ -336,7 +523,11 @@ class _MaintenanceFormPageState extends ConsumerState<MaintenanceFormPage> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Salvar manutenção'),
+                      : Text(
+                          _isEditing
+                              ? 'Atualizar manutenção'
+                              : 'Salvar manutenção',
+                        ),
                 ),
               ],
             ),

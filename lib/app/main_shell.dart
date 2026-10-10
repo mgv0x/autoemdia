@@ -54,10 +54,7 @@ class MainShell extends StatelessWidget {
             decoration: BoxDecoration(
               color: colorScheme.surface.withValues(alpha: 0.96),
               border: Border(
-                top: BorderSide(
-                  color: colorScheme.outlineVariant,
-                  width: 1,
-                ),
+                top: BorderSide(color: colorScheme.outlineVariant, width: 1),
               ),
               boxShadow: [
                 BoxShadow(
@@ -133,11 +130,7 @@ class _NavItem extends StatelessWidget {
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(
-              isSelected ? activeIcon : icon,
-              size: 22,
-              color: color,
-            ),
+            child: Icon(isSelected ? activeIcon : icon, size: 22, color: color),
           ),
           const SizedBox(height: 2),
           Text(

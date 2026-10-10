@@ -9,18 +9,18 @@ abstract final class AppTheme {
   static const primaryLight = Color(0xFF2563EB);
   static const primaryContainerColor = Color(0xFFDDE1FF);
   static const onPrimaryContainerColor = Color(0xFF001453);
-  
+
   static const backgroundColor = Color(0xFFF8FAFC);
   static const surfaceColor = Color(0xFFFFFFFF);
   static const surfaceContainerHighColor = Color(0xFFF1F5F9);
   static const surfaceVariantColor = Color(0xFFE2E8F0);
-  
+
   static const borderSubtleColor = Color(0xFFE2E8F0);
   static const outlineVariantColor = Color(0xFFCBD5E1);
-  
+
   static const textPrimaryColor = Color(0xFF0F172A);
   static const textMutedColor = Color(0xFF64748B);
-  
+
   static const successColor = Color(0xFF10B981);
   static const warningColor = Color(0xFFF59E0B);
   static const errorColor = Color(0xFFEF4444);
@@ -36,11 +36,15 @@ abstract final class AppTheme {
       brightness: brightness,
       primary: primaryColor,
       onPrimary: Colors.white,
-      primaryContainer: isDark ? const Color(0xFF1D4ED8) : primaryContainerColor,
+      primaryContainer: isDark
+          ? const Color(0xFF1D4ED8)
+          : primaryContainerColor,
       onPrimaryContainer: isDark ? Colors.white : onPrimaryContainerColor,
       secondary: const Color(0xFF64748B),
       onSecondary: Colors.white,
-      secondaryContainer: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+      secondaryContainer: isDark
+          ? const Color(0xFF334155)
+          : const Color(0xFFE2E8F0),
       onSecondaryContainer: isDark ? Colors.white : const Color(0xFF1E293B),
       tertiary: tertiaryColor,
       onTertiary: Colors.white,
@@ -53,10 +57,16 @@ abstract final class AppTheme {
       surface: isDark ? const Color(0xFF0F172A) : surfaceColor,
       onSurface: isDark ? const Color(0xFFF8FAFC) : textPrimaryColor,
       surfaceContainerLowest: isDark ? const Color(0xFF0B0F19) : Colors.white,
-      surfaceContainerLow: isDark ? const Color(0xFF131C2E) : const Color(0xFFF8FAFC),
+      surfaceContainerLow: isDark
+          ? const Color(0xFF131C2E)
+          : const Color(0xFFF8FAFC),
       surfaceContainer: isDark ? const Color(0xFF1E293B) : Colors.white,
-      surfaceContainerHigh: isDark ? const Color(0xFF334155) : surfaceContainerHighColor,
-      surfaceContainerHighest: isDark ? const Color(0xFF475569) : surfaceVariantColor,
+      surfaceContainerHigh: isDark
+          ? const Color(0xFF334155)
+          : surfaceContainerHighColor,
+      surfaceContainerHighest: isDark
+          ? const Color(0xFF475569)
+          : surfaceVariantColor,
       onSurfaceVariant: isDark ? const Color(0xFF94A3B8) : textMutedColor,
       outline: const Color(0xFF94A3B8),
       outlineVariant: isDark ? const Color(0xFF334155) : borderSubtleColor,
@@ -164,7 +174,9 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: isDark ? const Color(0xFF0F172A) : backgroundColor,
+      scaffoldBackgroundColor: isDark
+          ? const Color(0xFF0F172A)
+          : backgroundColor,
       textTheme: textTheme,
 
       appBarTheme: AppBarTheme(

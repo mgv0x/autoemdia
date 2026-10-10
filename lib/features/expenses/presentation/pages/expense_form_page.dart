@@ -3,19 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../../../core/constants/app_constants.dart';
 import '../../../../../core/errors/error_mapper.dart';
+import '../../../../../core/services/ad_manager.dart';
 import '../../../../../core/utils/snackbar.dart';
 import '../../../../../core/utils/validators.dart';
 import '../../../../../shared/providers/analytics_provider.dart';
+import '../../../subscription/presentation/controllers/subscription_controller.dart';
+import '../../../vehicle/domain/vehicle_type_config.dart';
 import '../../../vehicle/presentation/controllers/vehicle_controller.dart';
 import '../../domain/expense_entity.dart';
 import '../controllers/expense_controller.dart';
 
 class ExpenseFormPage extends ConsumerStatefulWidget {
-  const ExpenseFormPage({super.key, this.expense});
+  const ExpenseFormPage({super.key, this.expense, this.initialCategory});
 
   final ExpenseEntity? expense;
+  final String? initialCategory;
 
   @override
   ConsumerState<ExpenseFormPage> createState() => _ExpenseFormPageState();
@@ -35,7 +38,7 @@ class _ExpenseFormPageState extends ConsumerState<ExpenseFormPage> {
   void initState() {
     super.initState();
     final e = widget.expense;
-    _category = e?.category;
+    _category = e?.category ?? widget.initialCategory;
     _description = TextEditingController(text: e?.description ?? '');
     _amount = TextEditingController(
       text: e?.amount == null ? '' : e!.amount.toStringAsFixed(2),
@@ -92,7 +95,12 @@ class _ExpenseFormPageState extends ConsumerState<ExpenseFormPage> {
     if (!mounted) return;
     if (saved != null) {
       ref.read(analyticsServiceProvider).expenseCreated();
+      final isPremium = ref.read(isPremiumProvider).value ?? false;
       context.pop(saved);
+      AdManager.showInterstitialOnActionCompleted(
+        origin: 'expense_form_saved',
+        isPremium: isPremium,
+      );
     } else {
       final err = ref.read(expenseFormControllerProvider).error;
       showAppSnackBar(context, handleError(err ?? '').message, isError: true);
@@ -102,6 +110,14 @@ class _ExpenseFormPageState extends ConsumerState<ExpenseFormPage> {
   @override
   Widget build(BuildContext context) {
     final loading = ref.watch(expenseFormControllerProvider).isLoading;
+    final vehicle = ref.watch(activeVehicleProvider).value;
+    final config = vehicle != null
+        ? VehicleTypeConfig.of(vehicle.type)
+        : VehicleTypeConfig.carConfig;
+    final availableCategories =
+        config.expenseCategories.contains(_category) || _category == null
+            ? config.expenseCategories
+            : [_category!, ...config.expenseCategories];
 
     return Scaffold(
       appBar: AppBar(title: Text(_isEditing ? 'Editar gasto' : 'Novo gasto')),
@@ -119,7 +135,7 @@ class _ExpenseFormPageState extends ConsumerState<ExpenseFormPage> {
                     labelText: 'Categoria',
                     prefixIcon: Icon(Icons.category_outlined),
                   ),
-                  items: AppConstants.expenseCategories
+                  items: availableCategories
                       .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                       .toList(),
                   onChanged: (v) => setState(() => _category = v),

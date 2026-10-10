@@ -118,7 +118,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/expenses/new',
-        builder: (context, state) => const ExpenseFormPage(),
+        builder: (context, state) => ExpenseFormPage(
+          initialCategory: state.uri.queryParameters['category'],
+        ),
       ),
       GoRoute(
         path: '/expenses/:id',

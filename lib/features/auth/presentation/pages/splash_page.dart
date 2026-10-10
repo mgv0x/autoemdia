@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../../core/constants/app_constants.dart';
-import '../../../../../core/services/firebase_bootstrap.dart';
 
 /// Splash screen: exibe marca/slogan e decide a rota inicial.
 class SplashPage extends ConsumerStatefulWidget {
@@ -21,11 +20,10 @@ class _SplashPageState extends ConsumerState<SplashPage> {
   }
 
   Future<void> _bootstrap() async {
-    await Future.delayed(const Duration(milliseconds: 900));
+    // Aguarda breve exibição da splash. O Firebase já foi inicializado
+    // em main() antes do runApp(), então não precisamos fazê-lo aqui.
+    await Future.delayed(const Duration(milliseconds: 1200));
     if (!mounted) return;
-    // O router decide com base no estado de auth; se o Firebase não
-    // inicializou, o usuário verá o fluxo normalmente (as telas lidam
-    // individualmente com a ausência via estados de loading/erro).
     context.go('/');
   }
 
@@ -41,16 +39,23 @@ class _SplashPageState extends ConsumerState<SplashPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 96,
-                height: 96,
+                width: 112,
+                height: 112,
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: scheme.primaryContainer,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-                child: Icon(
-                  Icons.directions_car_rounded,
-                  size: 56,
-                  color: scheme.onPrimaryContainer,
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  fit: BoxFit.contain,
                 ),
               ),
               const SizedBox(height: 24),
@@ -73,20 +78,10 @@ class _SplashPageState extends ConsumerState<SplashPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 40),
-              // Inicializa o Firebase em background para aparecer o quanto antes.
-              FutureBuilder(
-                future: FirebaseBootstrap.initialize(),
-                builder: (_, snapshot) {
-                  if (snapshot.hasError) {
-                    return const Icon(Icons.error_outline, color: Colors.red);
-                  }
-                  return const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  );
-                },
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ],
           ),

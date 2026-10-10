@@ -53,10 +53,52 @@ class ReminderController extends Notifier<AsyncValue<ReminderEntity?>> {
     return !result.hasError;
   }
 
-  Future<bool> complete(String id) async {
+  /// Conclui um lembrete e, caso seja recorrente, agenda o próximo ciclo automaticamente.
+  Future<bool> complete(
+    String id, {
+    ReminderEntity? reminder,
+    int? executionMileage,
+  }) async {
     final result = await AsyncValue.guard(() async {
       await _repo.setCompleted(id, true);
       await cancelReminderNotifications(id);
+
+      // Se for recorrente, gera automaticamente o próximo ciclo
+      if (reminder != null && reminder.isRecurring) {
+        final now = DateTime.now();
+        DateTime? nextDueDate;
+        if (reminder.recurrenceDays != null && reminder.recurrenceDays! > 0) {
+          nextDueDate = now.add(Duration(days: reminder.recurrenceDays!));
+        }
+
+        int? nextDueMileage;
+        if (reminder.recurrenceKm != null && reminder.recurrenceKm! > 0) {
+          final baseKm = executionMileage ?? reminder.dueMileage ?? 0;
+          nextDueMileage = baseKm + reminder.recurrenceKm!;
+        }
+
+        final nextReminder = ReminderEntity(
+          id: '',
+          vehicleId: reminder.vehicleId,
+          title: reminder.title,
+          category: reminder.category,
+          type: reminder.type,
+          dueDate: nextDueDate,
+          dueMileage: nextDueMileage,
+          recurrenceKm: reminder.recurrenceKm,
+          recurrenceDays: reminder.recurrenceDays,
+          leadKm: reminder.leadKm,
+          leadDays: reminder.leadDays,
+          completed: false,
+          notificationEnabled: reminder.notificationEnabled,
+          sourceMaintenanceId: reminder.sourceMaintenanceId,
+        );
+
+        final created = await _repo.create(nextReminder);
+        if (created.notificationEnabled) {
+          await scheduleReminderNotifications(created);
+        }
+      }
       return null;
     });
     if (!result.hasError) ref.invalidate(remindersProvider);

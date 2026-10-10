@@ -64,3 +64,10 @@ firebase_options.dart
 # Supabase
 supabase/.temp/
 supabase/.env
+
+# Local / Tools / Scripts
+.agents/
+.vscode/
+post/
+my-video/
+skillls/

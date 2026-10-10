@@ -26,9 +26,8 @@ class RemindersPage extends ConsumerWidget {
       appBar: const AppTopBar(title: 'Lembretes'),
       body: remindersAsync.when(
         loading: () => const AppLoading(),
-        error: (e, _) => AppErrorState(
-          onRetry: () => ref.invalidate(remindersProvider),
-        ),
+        error: (e, _) =>
+            AppErrorState(onRetry: () => ref.invalidate(remindersProvider)),
         data: (list) {
           final groups = _group(list, currentKm);
 
@@ -83,8 +82,10 @@ class RemindersPage extends ConsumerWidget {
                         statusType: 'overdue',
                         currentMileage: currentKm,
                         badgeText: _badgeText(r, currentKm, isOverdue: true),
-                        onTap: () => context.push('/reminders/${r.id}', extra: r),
-                        onComplete: () => _completeReminder(ref, r.id),
+                        onTap: () =>
+                            context.push('/reminders/${r.id}', extra: r),
+                        onComplete: () =>
+                            _completeReminder(ref, r, currentKm),
                       ),
                     ),
                   ),
@@ -106,8 +107,10 @@ class RemindersPage extends ConsumerWidget {
                         statusType: 'upcoming',
                         currentMileage: currentKm,
                         badgeText: _badgeText(r, currentKm),
-                        onTap: () => context.push('/reminders/${r.id}', extra: r),
-                        onComplete: () => _completeReminder(ref, r.id),
+                        onTap: () =>
+                            context.push('/reminders/${r.id}', extra: r),
+                        onComplete: () =>
+                            _completeReminder(ref, r, currentKm),
                       ),
                     ),
                   ),
@@ -129,8 +132,10 @@ class RemindersPage extends ConsumerWidget {
                         statusType: 'future',
                         currentMileage: currentKm,
                         badgeText: _badgeText(r, currentKm),
-                        onTap: () => context.push('/reminders/${r.id}', extra: r),
-                        onComplete: () => _completeReminder(ref, r.id),
+                        onTap: () =>
+                            context.push('/reminders/${r.id}', extra: r),
+                        onComplete: () =>
+                            _completeReminder(ref, r, currentKm),
                       ),
                     ),
                   ),
@@ -152,7 +157,8 @@ class RemindersPage extends ConsumerWidget {
                         statusType: 'completed',
                         currentMileage: currentKm,
                         badgeText: 'Feito',
-                        onTap: () => context.push('/reminders/${r.id}', extra: r),
+                        onTap: () =>
+                            context.push('/reminders/${r.id}', extra: r),
                       ),
                     ),
                   ),
@@ -172,8 +178,12 @@ class RemindersPage extends ConsumerWidget {
     );
   }
 
-  void _completeReminder(WidgetRef ref, String id) {
-    ref.read(reminderControllerProvider.notifier).complete(id);
+  void _completeReminder(WidgetRef ref, ReminderEntity r, [int? currentKm]) {
+    ref.read(reminderControllerProvider.notifier).complete(
+      r.id,
+      reminder: r,
+      executionMileage: currentKm,
+    );
   }
 
   String _badgeText(ReminderEntity r, int currentKm, {bool isOverdue = false}) {
@@ -198,7 +208,8 @@ class RemindersPage extends ConsumerWidget {
     List<ReminderEntity> upcoming,
     List<ReminderEntity> future,
     List<ReminderEntity> completed,
-  }) _group(List<ReminderEntity> list, int currentKm) {
+  })
+  _group(List<ReminderEntity> list, int currentKm) {
     final overdue = <ReminderEntity>[];
     final upcoming = <ReminderEntity>[];
     final future = <ReminderEntity>[];
@@ -377,7 +388,10 @@ class _SectionStatusHeader extends StatelessWidget {
 
 /// Delightful Illustration Card no final da tela ("Tudo sob controle")
 class _AllCaughtUpCard extends StatelessWidget {
-  const _AllCaughtUpCard({required this.hasOverdue, required this.onNewReminder});
+  const _AllCaughtUpCard({
+    required this.hasOverdue,
+    required this.onNewReminder,
+  });
   final bool hasOverdue;
   final VoidCallback onNewReminder;
 
@@ -455,7 +469,11 @@ class _AllCaughtUpCard extends StatelessWidget {
 
           OutlinedButton.icon(
             onPressed: onNewReminder,
-            icon: const Icon(Icons.add_rounded, size: 18, color: AppTheme.primaryColor),
+            icon: const Icon(
+              Icons.add_rounded,
+              size: 18,
+              color: AppTheme.primaryColor,
+            ),
             label: Text(
               'Novo Lembrete',
               style: GoogleFonts.inter(
@@ -467,7 +485,9 @@ class _AllCaughtUpCard extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               backgroundColor: Colors.white,
               side: const BorderSide(color: AppTheme.borderSubtleColor),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
           ),

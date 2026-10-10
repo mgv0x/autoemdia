@@ -18,11 +18,12 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     try {
       final snap = await _col
           .where('vehicle_id', isEqualTo: vehicleId)
-          .orderBy('service_date', descending: true)
           .get();
-      return snap.docs
+      final list = snap.docs
           .map((d) => MaintenanceModel.fromJson(d.data(), id: d.id))
           .toList();
+      list.sort((a, b) => b.serviceDate.compareTo(a.serviceDate));
+      return list;
     } catch (e) {
       throw handleError(e, 'Não foi possível carregar as manutenções.');
     }
@@ -31,10 +32,9 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
   @override
   Future<MaintenanceEntity> create(MaintenanceEntity entity) async {
     try {
-      final ref = _col.doc();
+      final ref = entity.id.isNotEmpty ? _col.doc(entity.id) : _col.doc();
       await ref.set(MaintenanceModel.toJson(entity));
-      final created = await ref.get();
-      return MaintenanceModel.fromJson(created.data()!, id: ref.id);
+      return entity.copyWith(id: ref.id);
     } catch (e) {
       throw handleError(e, 'Não foi possível salvar a manutenção.');
     }
@@ -46,8 +46,7 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       await _col
           .doc(entity.id)
           .set(MaintenanceModel.toJson(entity), SetOptions(merge: true));
-      final updated = await _col.doc(entity.id).get();
-      return MaintenanceModel.fromJson(updated.data()!, id: entity.id);
+      return entity;
     } catch (e) {
       throw handleError(e, 'Não foi possível atualizar a manutenção.');
     }

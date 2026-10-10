@@ -7,47 +7,74 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/app.dart';
-import 'core/services/admob_service.dart';
+import 'core/services/ad_manager.dart';
 import 'core/services/firebase_bootstrap.dart';
 import 'core/services/firebase_status.dart';
 import 'core/services/notification_service.dart';
 import 'shared/providers/analytics_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'shared/providers/shared_preferences_provider.dart';
 
 Future<void> main() async {
-  final container = ProviderContainer();
-  await runZonedGuarded(
-    () async {
-      WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized();
 
-      // Firebase (obrigatório para auth e banco nesta versão).
-      // Se o app ainda não tiver google-services.json / firebase_options.dart,
-      // o Firebase.initializeApp lança e caimos no fallback.
-      try {
-        await FirebaseBootstrap.initialize();
-        FirebaseStatus.initialized = true;
-      } catch (_) {
-        FirebaseStatus.initialized = false;
+  // 1. Firebase (Auth, Firestore, Crashlytics, Analytics)
+  try {
+    await FirebaseBootstrap.initialize();
+  } catch (e, stack) {
+    FirebaseStatus.initialized = false;
+    debugPrint('Erro ao inicializar Firebase: $e\n$stack');
+  }
+
+  // 2. Notificações locais (seguro, não bloqueia inicialização da UI)
+  try {
+    await NotificationService.instance.init();
+  } catch (e, stack) {
+    debugPrint('Erro ao inicializar NotificationService: $e\n$stack');
+  }
+
+  // 3. Monetização (Unity Ads primária + AdMob preservada)
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    try {
+      await AdManager.initialize();
+    } catch (e) {
+      debugPrint('Erro ao inicializar serviços de anúncios: $e');
+    }
+  }
+
+  // 4. Configuração de erros globais (Crashlytics)
+  if (FirebaseStatus.initialized) {
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+  } else {
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      if (kDebugMode) {
+        debugPrint('Flutter Error: ${details.exception}\n${details.stack}');
       }
+    };
+  }
 
-      // Notificações locais
-      await NotificationService.instance.init();
+  // 4.1. SharedPreferences (síncrono após o start)
+  final prefs = await SharedPreferences.getInstance();
 
-      // AdMob (apenas Android)
-      if (!kIsWeb && Platform.isAndroid) {
-        await AdMobService.initialize();
-      }
-
-      // Evento inicial de analytics (não quebra se o Firebase não estiver pronto)
-      unawaited(container.read(analyticsServiceProvider).appOpened());
-    },
-    (error, stack) {
-      if (FirebaseStatus.initialized) {
-        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      } else if (kDebugMode) {
-        debugPrint('Erro não tratado: $error\n$stack');
-      }
-    },
+  final container = ProviderContainer(
+    overrides: [
+      sharedPreferencesProvider.overrideWithValue(prefs),
+    ],
   );
+
+  // 5. Evento inicial de analytics
+  try {
+    unawaited(container.read(analyticsServiceProvider).appOpened());
+  } catch (_) {}
+
+  // 6. Lembrete periódico de registrar quilometragem (usuários logados).
+  // Agendado no background para não travar a inicialização.
+  unawaited(_scheduleMileageReminderIfLoggedIn(container));
 
   runApp(
     UncontrolledProviderScope(
@@ -55,4 +82,34 @@ Future<void> main() async {
       child: const AutoEmDiaApp(),
     ),
   );
+}
+
+/// Agenda o lembrete mensal de km apenas quando há usuário autenticado.
+Future<void> _scheduleMileageReminderIfLoggedIn(
+  ProviderContainer container,
+) async {
+  try {
+    if (!FirebaseStatus.initialized) return;
+    // Aguarda um instante para o FirebaseAuth restaurar a sessão.
+    final user = firebaseAuth.currentUser ?? await _waitForUser();
+    if (user != null) {
+      await NotificationService.instance.scheduleMileageReminder();
+    }
+  } catch (_) {
+    // Nunca deve quebrar o start do app.
+  }
+}
+
+/// Espera até 3s pelo primeiro evento de authStateChanges (sessão restaurada).
+Future<dynamic> _waitForUser() async {
+  try {
+    final first = await firebaseAuth
+        .authStateChanges()
+        .where((u) => u != null)
+        .first
+        .timeout(const Duration(seconds: 3));
+    return first;
+  } catch (_) {
+    return null;
+  }
 }
